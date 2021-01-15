@@ -16,6 +16,19 @@ solve integro-differential equations.
 Future: Extensions to 2D and 3D.
 
 
+Installation
+--------
+
+There are currently no working `setup.py`. Just place the folder in your python
+path or use the included `.bashrc' to append the current directory to the
+pythonpath. Note that a few cython extensions are required.
+
+In the folder `cheb` execute
+
+```
+    python setup.py build_ext --inplace
+```
+
 Status
 --------
 
@@ -24,20 +37,44 @@ Status
 3. Some core features are unit-tested, but testing is not extensive enough.
 4. The Sympy support is slow and a mess.
 
+ToDo
+-------
+
+1. Write a proper setup.py.
+2. Better unit testing.
+3. **Urgent:** Change the core memory layout to match numpy's standard.
+4. Object constructors are a mess, make more use of classmethods!
+5. Fix module import, and have all the usual package things good to go i.e.\
+   (`__doc__` strings) etc. Also make importing work in expected ways i.e.\
+
+   ```
+   import funpy as fp
+   fun = fp.Fun(op=lambda x: x)
+   ```
+
+6. Remove dependency to jax, it's rather irritating.
+7. Improve `sympy` code, in particular fix the "compilation" of non-local equations.
+8. Complete continuation code in this repository.
+9. Clean-up the many bolted on features in the main operator class, collocators, and nonlinear solvers.
+10. Lazy evaluations of arithmetic operations? How to implement something like this in python? Is it even possible?
+11. Lots of other things need fixing and improving!
 
 Functions
 -------------------
 
-Currently one dimensional functions defined on bounded intervals are supported.
-Both non-periodic (Chebyshev series), and periodic (Fourier series)
-functions are supported.
+Currently one dimensional functions defined on bounded intervals both
+non-periodic (Chebyshev series), and periodic (Fourier series) functions are
+supported.
 
 ```
 # Define a function having two components on the interval [0, 1]
 fun = Fun(op=[lambda x: np.cos(np.pi * x), lambda x: -np.cos(np.pi * x)], domain=[0, 1])
 
-# Compute the integral
+# Compute the define integral
 int = np.sum(fun)
+
+# Compute the anti-derivative
+cfun = np.cumsum(fun)
 
 # Compute the derivative
 dfun = np.diff(fun)
@@ -50,19 +87,16 @@ Collocation
 -----------------
 
 Collocation to compute the solutions of differential equations is available.
-Working implementations are
+Working implementations are:
 
 1. Ultraspherical collocation for non-periodic functions.
 2. Fourier spectral collocation for periodic functions.
 
-Value collocations may be implemented in the future.
-
+Value collocations may be implemented in the future (some code exists).
 
 **Example:**
 
-Operators are defined as below. The strings of the operators are interpreted
-using sympy. If the operator is nonlinear sympy is used to symbolically compute
-the required Frechet derivative.
+An operator is defined as follows.
 
 ```
 op     = ChebOp(functions=['u', 'v'],
@@ -82,6 +116,21 @@ op.cts = ['0.5 * (K - int(u) - int(v))',
           '0.5 * (K - int(u) - int(v))']
 ```
 
+**Technical information:**
+
+1. The strings in `eqn` are interpreted using `sympy`, and thus must be valid
+sympy expressions. For this reason parameters and function names
+must be given to ChebOp upon construction (Future: Can we guess this somehow?).
+
+2. The boundary conditions must be valid `funpy` operations. They are
+   transformed into usable for by using the automatic differentiation framework
+   `jax`. It would be really nice to get rid of this dependency.
+
+3. Additional constraints can be specified in `cts`. For instance, mass
+   constrains can be defined as in the example above. Note however, that
+   currently **no** projections are applied. This may not be correct depending
+   on the type of problem you are solving!
+
 Nonlinear solvers
 ----------------
 
@@ -91,6 +140,20 @@ Three nonlinear solvers are available:
 2. QNERR (ERRor-based Quasi-Newton algorithm) see P. Deuflhard 2011
 3. NLEQ-ERR (ERRor-based Damped Newton algorithm) see P. Deuflhard 2011
 
+### Linear solvers
+
+Most linearly solvers used are from the `scipy` linear algebra suite, and
+available for use by the nonlinear solver. All internal linear operators are
+implemented based on the `LinearOperator` class from `pylops`. Thus, these
+matrices are sparse, and support for Krylov subspace methods exist.
+
+1. LGMRES
+2. GCROTMK (unstable)
+3. SparseQR from suite-sparse (slow due to required matrix format changes)
+4. SparseSolve (umfpack)
+5. QR-Cholesky - solver which applies the Moore-Penrose inverse to
+   underdetermined linear systems. Used for Newton-Gauss continuation. Both
+   sparse and dense versions available.
 
 Continuation
 -----------------
