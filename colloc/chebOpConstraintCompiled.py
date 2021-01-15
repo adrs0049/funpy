@@ -3,9 +3,9 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from funpy.cheb.detail import polyval
-from funpy.fun import Fun
-from funpy.colloc.chebcolloc.chebcolloc2 import chebcolloc2
+from cheb.detail import polyval
+from fun import Fun
+from colloc.chebcolloc.chebcolloc2 import chebcolloc2
 
 class ChebOpConstraintCompiled:
     def __init__(self, source, *args, **kwargs):

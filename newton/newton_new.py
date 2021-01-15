@@ -8,13 +8,13 @@ import scipy.sparse.linalg as LAS
 from copy import deepcopy
 from sparse.csr import eliminate_zeros_csr
 
-from funpy.fun import Fun, h1norm, norm
-from funpy.cheb.chebpts import quadwts
-from funpy.cheb.diff import computeDerCoeffs
-from funpy.states.State import NonlinearFunction, ContinuationState
-from funpy.states.pseudo_arclength import PseudoArcContinuationCorrector
+from fun import Fun, h1norm, norm
+from cheb.chebpts import quadwts
+from cheb.diff import computeDerCoeffs
+from states.State import NonlinearFunction, ContinuationState
+from states.pseudo_arclength import PseudoArcContinuationCorrector
 from nlep.nullspace import right_null_vector
-from funpy.newton.deflated_residual import DeflatedResidual
+from newton.deflated_residual import DeflatedResidual
 
 SMALL=1.0e-150
 EPMACH=1.0e-17

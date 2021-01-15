@@ -3,7 +3,7 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 from numbers import Number
-from funpy.colloc.tools import execute_pycode
+from colloc.tools import execute_pycode
 
 
 class Residual:

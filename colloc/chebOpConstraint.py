@@ -3,8 +3,8 @@
 # Author: Andreas Buttenschoen
 import numpy as onp
 
-from funpy.fun import Fun
-from funpy.colloc.chebcolloc.chebcolloc2 import chebcolloc2
+from fun import Fun
+from colloc.chebcolloc.chebcolloc2 import chebcolloc2
 
 # Import auto differentiation
 import jax.numpy as np

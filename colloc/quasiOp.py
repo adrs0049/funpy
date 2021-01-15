@@ -3,8 +3,8 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from funpy.colloc.linBlock import LinBlock
-from funpy.colloc.tools import execute_pycode
+from colloc.linBlock import LinBlock
+from colloc.tools import execute_pycode
 
 class QuasiOp:
     def __init__(self, shape=None, *args, **kwargs):

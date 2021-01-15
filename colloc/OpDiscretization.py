@@ -10,12 +10,12 @@ from scipy.sparse import eye, bmat
 
 from sparse.csr import flip_rows
 
-from funpy.fun import Fun
-from funpy.mapping import Mapping
+from fun import Fun
+from mapping import Mapping
 
-from funpy.cheb.chebpy import chebtec
-from funpy.colloc.ultraS.matrices import blockmat
-from funpy.colloc.projection import RectangularProjection
+from cheb.chebpy import chebtec
+from colloc.ultraS.matrices import blockmat
+from colloc.projection import RectangularProjection
 
 
 class OpDiscretization(object):

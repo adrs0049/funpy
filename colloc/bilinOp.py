@@ -3,9 +3,9 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from funpy.colloc.bilinBlock import BiLinBlock
-from funpy.colloc.quasiOp import QuasiOp
-from funpy.colloc.tools import execute_pycode
+from colloc.bilinBlock import BiLinBlock
+from colloc.quasiOp import QuasiOp
+from colloc.tools import execute_pycode
 
 
 class BiLinOp:

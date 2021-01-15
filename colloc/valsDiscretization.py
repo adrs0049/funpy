@@ -5,9 +5,9 @@ import numpy as onp
 import scipy.linalg as LA
 from scipy.sparse import diags
 
-from funpy.cheb.chebpts import chebpts
-from funpy.colloc.chebcolloc.baryDiffMat import diffmat
-from funpy.colloc.OpDiscretization import OpDiscretization
+from cheb.chebpts import chebpts
+from colloc.chebcolloc.baryDiffMat import diffmat
+from colloc.OpDiscretization import OpDiscretization
 
 # Import auto differentiation
 from jax.config import config

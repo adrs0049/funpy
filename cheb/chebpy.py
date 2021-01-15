@@ -12,14 +12,14 @@ from numpy.core.multiarray import normalize_axis_index
 from scipy.fftpack import ifft, fft, dct, idct, idst, ifftshift
 
 # Local imports
-from funpy.support.cached_property import lazy_property
-from funpy.cheb.chebpts import chebpts_type2, chebpts_type2_compute, barymat, quadwts
-from funpy.cheb.refine import RefineBase, Refine, RefineCompose1, RefineCompose2, FunctionContainer
-from funpy.cheb.detail import polyfit, polyval, clenshaw, roots
-from funpy.cheb.detail import standardChop, prolong, simplify_coeffs, happiness_check
-from funpy.cheb.diff import computeDerCoeffs
-import funpy.cheb.qr
-from funpy.cheb.minmax import minmaxCol
+from support.cached_property import lazy_property
+from cheb.chebpts import chebpts_type2, chebpts_type2_compute, barymat, quadwts
+from cheb.refine import RefineBase, Refine, RefineCompose1, RefineCompose2, FunctionContainer
+from cheb.detail import polyfit, polyval, clenshaw, roots
+from cheb.detail import standardChop, prolong, simplify_coeffs, happiness_check
+from cheb.diff import computeDerCoeffs
+import cheb.qr
+from cheb.minmax import minmaxCol
 
 EPS = np.finfo(float).eps
 
@@ -112,7 +112,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
         return self.coeffs.flatten(order='F')
 
     def __array_ufunc__(self, numpy_ufunc, method, *inputs, **kwargs):
-        import funpy.cheb.ufuncs as cp_funcs
+        import cheb.ufuncs as cp_funcs
 
         # out = kwargs.get('out', ())
         # TODO: this probably needs to be somewhere else it can't check for trigtech input!

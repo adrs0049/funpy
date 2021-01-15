@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from funpy.cheb.detail import standardChopCmplx
-from funpy.trig.transform import coeffs2vals, vals2coeffs
+from cheb.detail import standardChopCmplx
+from trig.transform import coeffs2vals, vals2coeffs
 
 def is_real(values, eps=1e-14, vscl=1):
     return (np.max(np.abs(np.imag(values)), axis=0) <= 3 * eps * vscl).squeeze()

@@ -4,8 +4,8 @@
 import numpy as np
 from scipy.fft import ifft, fft
 
-from funpy.trig.trigtech import trigtech
-from funpy.trig.transform import vals2coeffs, coeffs2vals
+from trig.trigtech import trigtech
+from trig.transform import vals2coeffs, coeffs2vals
 
 
 def circshift(f, a):

@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from funpy.cheb.detail import polyfit, polyval
-from funpy.cheb.chebpts import chebpts_type2_compute
+from cheb.detail import polyfit, polyval
+from cheb.chebpts import chebpts_type2_compute
 
 class FunctionContainer:
     def __init__(self, fs, dtype=np.float64, *args, **kwargs):

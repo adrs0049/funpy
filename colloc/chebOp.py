@@ -9,22 +9,22 @@ import sympy as syp
 import scipy.linalg as LA
 import scipy.sparse.linalg as LAS
 import h5py as h5
-from funpy.fun import Fun, norm2, zeros
+from fun import Fun, norm2, zeros
 
-from funpy.colloc.chebOpConstraint import ChebOpConstraint
-from funpy.colloc.chebOpConstraintCompiled import ChebOpConstraintCompiled
-from funpy.colloc.ultraS.ultraS import ultraS
-from funpy.colloc.trigspec.trigspec import trigspec
-from funpy.colloc.realDiscretization import realDiscretization
-from funpy.colloc.source import Source
-from funpy.colloc.LinSys import LinSys
-from funpy.colloc.BiLinSys import BiLinSys
-from funpy.colloc.adapt import SolverAdaptive
+from colloc.chebOpConstraint import ChebOpConstraint
+from colloc.chebOpConstraintCompiled import ChebOpConstraintCompiled
+from colloc.ultraS.ultraS import ultraS
+from colloc.trigspec.trigspec import trigspec
+from colloc.realDiscretization import realDiscretization
+from colloc.source import Source
+from colloc.LinSys import LinSys
+from colloc.BiLinSys import BiLinSys
+from colloc.adapt import SolverAdaptive
 
-from funpy.newton.newton_standard import Newton
-from funpy.states.base_state import BaseState
-from funpy.states.State import BaseState, ContinuationState
-from funpy.states.deflation_state import DeflationState
+from newton.newton_standard import Newton
+from states.base_state import BaseState
+from states.State import BaseState, ContinuationState
+from states.deflation_state import DeflationState
 
 
 class ChebOp:

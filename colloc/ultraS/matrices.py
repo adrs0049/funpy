@@ -7,9 +7,9 @@ from functools import lru_cache
 from scipy.sparse import spdiags, eye, csr_matrix, lil_matrix, issparse
 from sparse.csr import delete_rows_csr, eliminate_zeros_csr
 
-from funpy.colloc.ultraS.transform import sptoeplitz, spconvert, spconvert_inv, sphankel
-from funpy.cheb.chebpts import chebpts_type2, barymat, quadwts
-from funpy.cheb.detail import standardChop
+from colloc.ultraS.transform import sptoeplitz, spconvert, spconvert_inv, sphankel
+from cheb.chebpts import chebpts_type2, barymat, quadwts
+from cheb.detail import standardChop
 
 CACHE_SIZE = 25
 

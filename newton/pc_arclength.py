@@ -9,17 +9,17 @@ import warnings
 from copy import deepcopy
 from sparse.csr import eliminate_zeros_csr
 
-from funpy.fun import minandmax
-from funpy.fun import Fun, h1norm, norm, norm2
-from funpy.cheb.chebpts import quadwts
-from funpy.cheb.diff import computeDerCoeffs
-from funpy.states.State import ContinuationState
-from funpy.newton.pseudo_arclength import PseudoArcContinuationCorrector
-from funpy.newton.newton import NewtonBase, sprod, nnorm
-from funpy.linalg.qr_solve import QRCholesky
+from fun import minandmax
+from fun import Fun, h1norm, norm, norm2
+from cheb.chebpts import quadwts
+from cheb.diff import computeDerCoeffs
+from states.State import ContinuationState
+from newton.pseudo_arclength import PseudoArcContinuationCorrector
+from newton.newton import NewtonBase, sprod, nnorm
+from linalg.qr_solve import QRCholesky
 from nlep.nullspace import right_null_vector
-from funpy.newton.deflated_residual import DeflatedResidual
-from funpy.support.tools import orientation_y, logdet, functional, Determinant
+from newton.deflated_residual import DeflatedResidual
+from support.tools import orientation_y, logdet, functional, Determinant
 
 # NUMBERS FOR NLEQ_ERR
 SMALL = 1.0e-150

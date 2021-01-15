@@ -3,7 +3,7 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 from numpy.testing import assert_, assert_raises, assert_almost_equal
-from funpy.cheb.chebpy import chebtec
+from cheb.chebpy import chebtec
 
 class TestChebTecEval:
     def test_eval(self):

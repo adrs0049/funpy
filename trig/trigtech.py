@@ -8,15 +8,15 @@ from numbers import Number
 from math import floor, ceil
 from scipy.fft import ifft, fft
 
-from funpy.cheb.detail import standardChopCmplx
-from funpy.cheb.chebpy import chebtec
-from funpy.trig.trig_simplify import simplify_coeffs
-from funpy.cheb.refine import FunctionContainer
-from funpy.trig.refine import Refine, RefineBase
-from funpy.trig.eval import horner
-from funpy.trig.transform import coeffs2vals, vals2coeffs
-from funpy.trig.trigpts import trigpts, quadwts
-from funpy.trig.trig_simplify import prolong
+from cheb.detail import standardChopCmplx
+from cheb.chebpy import chebtec
+from trig.trig_simplify import simplify_coeffs
+from cheb.refine import FunctionContainer
+from trig.refine import Refine, RefineBase
+from trig.eval import horner
+from trig.transform import coeffs2vals, vals2coeffs
+from trig.trigpts import trigpts, quadwts
+from trig.trig_simplify import prolong
 
 
 """ Do the inheritance correctly otherwise we have all kinds of isinstance problems """
@@ -130,7 +130,7 @@ class trigtech(np.lib.mixins.NDArrayOperatorsMixin):
         return self.coeffs
 
     def __array_ufunc__(self, numpy_ufunc, method, *inputs, **kwargs):
-        import funpy.trig.ufuncs as cp_funcs
+        import trig.ufuncs as cp_funcs
         out = kwargs.get('out', ())
         # for x in inputs + out:
         #     if not isinstance(x, (np.ndarray, Number, type(self))):

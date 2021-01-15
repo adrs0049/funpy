@@ -3,8 +3,8 @@ import time
 import statistics
 import random
 
-from funpy.colloc.ultraS.matrices import multmat
-from funpy.fun import Fun
+from colloc.ultraS.matrices import multmat
+from fun import Fun
 
 if __name__ == '__main__':
 

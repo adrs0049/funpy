@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from funpy.colloc.chebOp import chebOp
+from colloc.chebOp import chebOp
 
 # simple class to do Natural parameter continuation
 class Continuation:

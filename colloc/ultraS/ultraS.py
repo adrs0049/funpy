@@ -8,14 +8,14 @@ import scipy.sparse.linalg as LAS
 from scipy.sparse import eye, csr_matrix
 from sparse.csr import delete_rows_csr, eliminate_zeros_csr
 
-from funpy.fun import Fun
-from funpy.fun import norm
+from fun import Fun
+from fun import norm
 
-from funpy.colloc.coeffsDiscretization import coeffsDiscretization
-from funpy.colloc.ultraS.matrices import convertmat, convertmat_inv, diffmat, intmat, multmat, delete_rows
-from funpy.colloc.ultraS.matrices import blockmat
-from funpy.cheb.chebpts import quadwts
-from funpy.cheb.detail import polyval
+from colloc.coeffsDiscretization import coeffsDiscretization
+from colloc.ultraS.matrices import convertmat, convertmat_inv, diffmat, intmat, multmat, delete_rows
+from colloc.ultraS.matrices import blockmat
+from cheb.chebpts import quadwts
+from cheb.detail import polyval
 
 
 class ultraS(coeffsDiscretization):

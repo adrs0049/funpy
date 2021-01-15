@@ -4,7 +4,7 @@
 import numpy as np
 import warnings
 
-from funpy.fun import Fun
+from fun import Fun
 
 
 def uniform_kernel(n, domain):

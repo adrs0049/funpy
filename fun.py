@@ -5,11 +5,11 @@ import numpy as np
 import h5py as h5
 from numbers import Number
 from copy import deepcopy, copy
-from funpy.support.cached_property import lazy_property
-from funpy.trig.trigtech import trigtech
-from funpy.trig.operations import circconv, circshift, trig_adhesion
-from funpy.cheb.chebpy import chebtec
-from funpy.mapping import Mapping
+from support.cached_property import lazy_property
+from trig.trigtech import trigtech
+from trig.operations import circconv, circshift, trig_adhesion
+from cheb.chebpy import chebtec
+from mapping import Mapping
 
 HANDLED_FUNCTIONS = {}
 SMALL_EPS = 1e-8

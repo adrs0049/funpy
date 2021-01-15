@@ -13,18 +13,17 @@ from copy import deepcopy
 
 from sparse.csr import eliminate_zeros_csr
 
-from funpy.fun import Fun, h1norm, norm, norm2
-from funpy.fun import minandmax
-from funpy.cheb.chebpts import quadwts
-from funpy.cheb.diff import computeDerCoeffs
-from funpy.states.State import ContinuationState
-from funpy.states.deflation_state import DeflationState
-from funpy.newton.pseudo_arclength import PseudoArcContinuationCorrector
-from funpy.newton.newton_gauss import NewtonGaussContinuationCorrector
-from funpy.newton.deflated_residual import DeflatedResidual
-from funpy.linalg.qr_solve import QRCholesky
-from nlep.nullspace import right_null_vector
-from funpy.support.tools import orientation_y, logdet, functional, Determinant
+from fun import Fun, h1norm, norm, norm2
+from fun import minandmax
+from cheb.chebpts import quadwts
+from cheb.diff import computeDerCoeffs
+from states.State import ContinuationState
+from states.deflation_state import DeflationState
+from newton.pseudo_arclength import PseudoArcContinuationCorrector
+from newton.newton_gauss import NewtonGaussContinuationCorrector
+from newton.deflated_residual import DeflatedResidual
+from linalg.qr_solve import QRCholesky
+from support.tools import orientation_y, logdet, functional, Determinant
 
 try:
     from scikits import umfpack

@@ -3,15 +3,15 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 from ac.support import Namespace
-from funpy.fun import Fun
+from fun import Fun
 
-from funpy.colloc.chebOpConstraint import ChebOpConstraint
-from funpy.colloc.tools import execute_pycode
-from funpy.colloc.LinSysBase import LinSysBase
-from funpy.colloc.linOp import LinOp
-from funpy.colloc.bilinOp import BiLinOp
-from funpy.colloc.rhs import Residual
-from funpy.colloc.pDerivative import DerivativeFunctional
+from colloc.chebOpConstraint import ChebOpConstraint
+from colloc.tools import execute_pycode
+from colloc.LinSysBase import LinSysBase
+from colloc.linOp import LinOp
+from colloc.bilinOp import BiLinOp
+from colloc.rhs import Residual
+from colloc.pDerivative import DerivativeFunctional
 
 
 class LinSys(LinSysBase):

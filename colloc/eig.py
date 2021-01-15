@@ -8,7 +8,7 @@ import scipy.linalg as LA
 import scipy.sparse.linalg as LAS
 from pylops import LinearOperator
 
-from funpy.colloc.chebOp import ChebOp
+from colloc.chebOp import ChebOp
 
 class GeneralizedEigenvalueOp(LinearOperator):
     r"""

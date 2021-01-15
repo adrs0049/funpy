@@ -3,8 +3,8 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 from numpy.testing import assert_, assert_raises, assert_almost_equal
-from funpy.fun import Fun
-from funpy.colloc.chebOp import ChebOp
+from fun import Fun
+from colloc.chebOp import ChebOp
 
 
 class TestChebOpLinear:

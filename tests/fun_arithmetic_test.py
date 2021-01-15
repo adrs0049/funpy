@@ -2,9 +2,8 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-import funpy as fp
 from numpy.testing import assert_, assert_raises, assert_almost_equal
-from funpy.fun import Fun
+from fun import Fun
 
 
 class TestFun:

@@ -4,8 +4,8 @@
 import numpy as np
 from numpy.testing import assert_, assert_raises, assert_almost_equal
 
-from funpy.fun import Fun
-from funpy.states.deflation_state import DeflationState
+from fun import Fun
+from states.deflation_state import DeflationState
 
 class TestDeflationState:
     def test_addition(self):

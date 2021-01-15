@@ -7,8 +7,8 @@ import scipy.sparse as sps
 import scipy.linalg as LA
 import scipy.sparse.linalg as LAS
 
-from funpy.linalg.qr import qr
-from funpy.support.tools import minimumSwaps, detH, slogdet_hessenberg
+from linalg.qr import qr
+from support.tools import minimumSwaps, detH, slogdet_hessenberg
 
 
 class QRCholesky:

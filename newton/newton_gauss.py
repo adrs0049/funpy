@@ -9,10 +9,10 @@ import scipy.sparse.linalg as LAS
 from sparse.csr import csr_vappend
 from pylops import LinearOperator
 
-from funpy.states.State import ContinuationState
-from funpy.support.Functional import Functional
-from funpy.newton.deflated_residual import DeflatedResidual
-from funpy.cheb.chebpts import quadwts
+from states.State import ContinuationState
+from support.Functional import Functional
+from newton.deflated_residual import DeflatedResidual
+from cheb.chebpts import quadwts
 
 
 class NewtonGaussContinuationCorrectorPrecond(LinearOperator):

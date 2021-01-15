@@ -9,13 +9,13 @@ from copy import deepcopy
 from numbers import Number
 from ac.support import Namespace
 
-from funpy.fun import Fun, h1norm, norm, norm2, sturm_norm, sturm_norm_alt
-from funpy.fun import minandmax
+from fun import Fun, h1norm, norm, norm2, sturm_norm, sturm_norm_alt
+from fun import minandmax
 
-from funpy.support.tools import orientation_y
-from funpy.states.parameter import Parameter
-from funpy.cheb.chebpts import quadwts
-from funpy.support.cached_property import lazy_property
+from support.tools import orientation_y
+from states.parameter import Parameter
+from cheb.chebpts import quadwts
+from support.cached_property import lazy_property
 
 
 HANDLED_FUNCTIONS = {}

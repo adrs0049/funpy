@@ -11,10 +11,10 @@ from math import sqrt
 import warnings
 from copy import deepcopy
 
-from funpy.fun import Fun
-from funpy.states.deflation_state import DeflationState
-from funpy.newton.newton import NewtonBase
-from funpy.newton.deflated_residual import DeflatedResidual
+from fun import Fun
+from states.deflation_state import DeflationState
+from newton.newton import NewtonBase
+from newton.deflated_residual import DeflatedResidual
 
 
 class NewtonSeeker(NewtonBase):

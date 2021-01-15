@@ -5,9 +5,9 @@ import numpy as np
 from copy import deepcopy
 from numbers import Number
 
-from funpy.fun import h1norm, norm, norm2, sturm_norm, sturm_norm_alt, sturm_norm
-from funpy.states.base_state import BaseState
-from funpy.states.parameter import Parameter
+from fun import h1norm, norm, norm2, sturm_norm, sturm_norm_alt, sturm_norm
+from states.base_state import BaseState
+from states.parameter import Parameter
 
 
 class DeflationState(BaseState):

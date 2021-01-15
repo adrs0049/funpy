@@ -4,7 +4,7 @@
 import numpy as np
 from numpy.testing import assert_, assert_raises, assert_almost_equal
 from copy import copy, deepcopy
-from funpy.fun import Fun
+from fun import Fun
 
 
 class TestFunEval:

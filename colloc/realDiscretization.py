@@ -6,8 +6,8 @@ from scipy.sparse import csr_matrix
 from copy import copy
 import itertools
 
-from funpy.fun import Fun
-from funpy.colloc.OpDiscretization import OpDiscretization
+from fun import Fun
+from colloc.OpDiscretization import OpDiscretization
 
 
 class realDiscretization(OpDiscretization):

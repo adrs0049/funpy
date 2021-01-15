@@ -8,10 +8,10 @@ from copy import copy
 from scipy.sparse import csr_matrix
 import scipy.sparse.linalg as LAS
 
-from funpy.fun import Fun
-from funpy.colloc.OpDiscretization import OpDiscretization
-from funpy.colloc.chebcolloc.chebcolloc2 import chebcolloc2
-from funpy.cheb.detail import polyval
+from fun import Fun
+from colloc.OpDiscretization import OpDiscretization
+from colloc.chebcolloc.chebcolloc2 import chebcolloc2
+from cheb.detail import polyval
 
 
 class coeffsDiscretization(OpDiscretization):

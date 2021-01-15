@@ -4,7 +4,7 @@
 import numpy as np
 from ac.support import Namespace
 
-from funpy.fun import Fun
+from fun import Fun
 
 
 class LinSysBase:

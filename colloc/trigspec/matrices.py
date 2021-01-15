@@ -7,8 +7,8 @@ import scipy.sparse as sps
 from sparse.csr import delete_rows_csr, eliminate_zeros_csr
 from scipy.sparse import spdiags, eye, csr_matrix, lil_matrix, issparse
 
-from funpy.colloc.ultraS.transform import sptoeplitz, spconvert, spconvert_inv, sphankel
-from funpy.trig.trigpts import quadwts
+from colloc.ultraS.transform import sptoeplitz, spconvert, spconvert_inv, sphankel
+from trig.trigpts import quadwts
 
 CACHE_SIZE = 25
 

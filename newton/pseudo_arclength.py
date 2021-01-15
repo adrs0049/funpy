@@ -7,10 +7,10 @@ import scipy.linalg as LA
 import scipy.sparse.linalg as LAS
 from pylops import LinearOperator
 
-from funpy.states.State import ContinuationState
-from funpy.newton.deflated_residual import DeflatedResidual
-from funpy.support.Functional import Functional
-from funpy.cheb.chebpts import quadwts
+from states.State import ContinuationState
+from newton.deflated_residual import DeflatedResidual
+from support.Functional import Functional
+from cheb.chebpts import quadwts
 
 
 class PseudoArcContinuationCorrectorPrecond(LinearOperator):

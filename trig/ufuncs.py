@@ -4,12 +4,12 @@
 import numpy as np
 from numbers import Number
 
-from funpy.cheb.chebpy import chebtec
-import funpy.cheb.ufuncs as cb_funcs
+from cheb.chebpy import chebtec
+import cheb.ufuncs as cb_funcs
 
-from funpy.trig.trig_simplify import prolong, simplify_coeffs
-from funpy.trig.trigtech import trigtech
-from funpy.trig.transform import coeffs2vals, vals2coeffs
+from trig.trig_simplify import prolong, simplify_coeffs
+from trig.trigtech import trigtech
+from trig.transform import coeffs2vals, vals2coeffs
 
 
 def negative(x, **kwargs):

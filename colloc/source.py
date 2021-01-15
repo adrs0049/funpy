@@ -13,9 +13,9 @@ from IPython.display import display
 from ac.support import Namespace
 from ac.gen import CodeGeneratorBackend
 
-from funpy.cheb.cbcode import cpcode
-from funpy.cheb.odecode import odecode
-from funpy.colloc.tools import execute_pycode, sympy_base_program, convolve
+from cheb.cbcode import cpcode
+from cheb.odecode import odecode
+from colloc.tools import execute_pycode, sympy_base_program, convolve
 
 
 class Source:
@@ -704,7 +704,7 @@ class Source:
         cg.write('import numpy')
         cg.write('import scipy')
         cg.write('import numpy as np')
-        cg.write('from funpy.fun import *')
+        cg.write('from fun import *')
         cg.write('')
         cg.write(35 * '#')
         cg.write('# Spatial variables')

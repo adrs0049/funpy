@@ -6,9 +6,9 @@ import scipy as sp
 from math import sqrt, log
 from scipy.sparse.linalg import splu
 
-from funpy.fun import minandmax
-from funpy.cheb.detail import polyval
-from funpy.cheb.chebpts import quadwts
+from fun import minandmax
+from cheb.detail import polyval
+from cheb.chebpts import quadwts
 
 
 def secant(s1, d1, s2, d2):

@@ -4,9 +4,9 @@
 import numpy as np
 from numpy.testing import assert_, assert_raises, assert_almost_equal
 
-from funpy.fun import Fun
-from funpy.states.parameter import Parameter
-from funpy.states.State import ContinuationState
+from fun import Fun
+from states.parameter import Parameter
+from states.State import ContinuationState
 
 
 class TestContinuationState:

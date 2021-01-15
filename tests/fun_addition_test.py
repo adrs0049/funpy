@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-import funpy as fp
-from funpy.fun import Fun
+from fun import Fun
 from numpy.testing import assert_, assert_raises
 
 

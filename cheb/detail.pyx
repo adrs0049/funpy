@@ -15,7 +15,7 @@ from scipy.fft._pocketfft.pypocketfft import dct
 from scipy.fft import ifft, fft
 
 from libc.math cimport sqrt, abs, log, log10, fmax, round
-from funpy.cheb.chebpts import chebpts_type2_compute
+from cheb.chebpts import chebpts_type2_compute
 from scipy.sparse import spdiags, eye, triu
 
 # TYPE DEFINITIONS

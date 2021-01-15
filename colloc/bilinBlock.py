@@ -6,8 +6,8 @@ import re
 from numbers import Number
 from ac.support import Namespace
 
-from funpy.fun import Fun
-from funpy.colloc.quasiOpBlock import QuasiOpBlock
+from fun import Fun
+from colloc.quasiOpBlock import QuasiOpBlock
 
 
 class BiLinBlock:

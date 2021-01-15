@@ -3,10 +3,10 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from funpy.fun import Fun
-from funpy.cheb.detail import polyval
-from funpy.cheb.diff import computeDerCoeffs
-from funpy.trig.transform import coeffs2vals, vals2coeffs
+from fun import Fun
+from cheb.detail import polyval
+from cheb.diff import computeDerCoeffs
+from trig.transform import coeffs2vals, vals2coeffs
 
 
 class Functional:
@@ -29,7 +29,7 @@ class Functional:
 
         # transform the value of f(x) to coefficient representation
         if self.basis == 'coeff':
-            from funpy.cheb.chebpts import quadwts
+            from cheb.chebpts import quadwts
             self.rhs = np.empty(self.dorder + 1, dtype=object)
             self.diff = self.diff_cheb
 
@@ -50,7 +50,7 @@ class Functional:
                     f = (np.diff(f) / rescaleFactor).prolong(max(1, f.n-1))
 
         elif self.basis == 'trigspec':
-            from funpy.trig.trigpts import quadwts
+            from trig.trigpts import quadwts
             self.rhs = np.empty(self.dorder + 1, dtype=object)
             self.diff = self.diff_trig
 

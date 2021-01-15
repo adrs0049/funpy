@@ -11,10 +11,10 @@ cimport cython
 from numbers import Number
 from scipy.fft import ifft, fft
 
-from funpy.cheb.detail import polyfit, polyval
-from funpy.cheb.chebpy import chebtec
-from funpy.trig.trigtech import trigtech
-from funpy.cheb.detail import prolong, simplify_coeffs
+from cheb.detail import polyfit, polyval
+from cheb.chebpy import chebtec
+from trig.trigtech import trigtech
+from cheb.detail import prolong, simplify_coeffs
 
 
 def negative(x, **kwargs):

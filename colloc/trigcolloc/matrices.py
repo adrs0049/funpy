@@ -9,9 +9,9 @@ from scipy.fft import ifft, fft
 from scipy.sparse import spdiags, eye, csr_matrix, lil_matrix, issparse
 from sparse.csr import delete_rows_csr, eliminate_zeros_csr
 
-from funpy.colloc.ultraS.transform import sptoeplitz, spconvert, spconvert_inv, sphankel
-from funpy.cheb.chebpts import chebpts_type2, barymat, quadwts
-from funpy.cheb.simplify import standardChop
+from colloc.ultraS.transform import sptoeplitz, spconvert, spconvert_inv, sphankel
+from cheb.chebpts import chebpts_type2, barymat, quadwts
+from cheb.simplify import standardChop
 
 CACHE_SIZE = 25
 

@@ -8,11 +8,11 @@ import scipy.sparse as sps
 from scipy.sparse import eye, csr_matrix, bmat
 from sparse.csr import delete_rows_csr, eliminate_zeros_csr
 
-from funpy.trig.trigtech import trigtech
-from funpy.trig.trigpts import trigpts
-from funpy.colloc.valsDiscretization import valsDiscretization
-from funpy.colloc.chebcolloc.baryDiffMat import diffmat
-from funpy.colloc.trigcolloc.matrices import blockmat
+from trig.trigtech import trigtech
+from trig.trigpts import trigpts
+from colloc.valsDiscretization import valsDiscretization
+from colloc.chebcolloc.baryDiffMat import diffmat
+from colloc.trigcolloc.matrices import blockmat
 
 
 class trigcolloc(valsDiscretization):

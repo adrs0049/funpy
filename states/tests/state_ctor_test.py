@@ -4,11 +4,11 @@
 import numpy as np
 from numpy.testing import assert_, assert_raises, assert_almost_equal
 
-from funpy.fun import Fun
-from funpy.states.deflation_state import DeflationState
-from funpy.states.State import ContinuationState
-from funpy.states.tp_state import TwoParameterState
-from funpy.states.parameter import Parameter
+from fun import Fun
+from states.deflation_state import DeflationState
+from states.State import ContinuationState
+from states.tp_state import TwoParameterState
+from states.parameter import Parameter
 
 
 class TestConstructionState:

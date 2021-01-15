@@ -4,12 +4,12 @@
 import numpy as np
 from ac.support import Namespace
 
-from funpy.colloc.chebOpConstraint import ChebOpConstraint
-from funpy.colloc.tools import execute_pycode, pycode_imports
-from funpy.colloc.linOp import LinOp
-from funpy.colloc.rhs import Residual
+from colloc.chebOpConstraint import ChebOpConstraint
+from colloc.tools import execute_pycode, pycode_imports
+from colloc.linOp import LinOp
+from colloc.rhs import Residual
 
-from funpy.states.tp_state import TwoParameterState
+from states.tp_state import TwoParameterState
 
 
 class DerivativeFunctional:

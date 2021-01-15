@@ -6,10 +6,10 @@ import numpy as np
 import scipy.sparse.linalg as LAS
 import scipy.linalg as LA
 
-from funpy.fun import Fun, h1norm, norm, norm2
-from funpy.support.Functional import Functional
-from funpy.cheb.chebpts import quadwts
-from funpy.cheb.diff import computeDerCoeffs
+from fun import Fun, h1norm, norm, norm2
+from support.Functional import Functional
+from cheb.chebpts import quadwts
+from cheb.diff import computeDerCoeffs
 
 
 class DeflatedResidual(LinearOperator):
