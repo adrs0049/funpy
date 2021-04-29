@@ -47,32 +47,34 @@ class BiLinSys(LinSysBase):
     def __str__(self):
         return 'BiLinSys'
 
-    def quasi(self, u, par=False):
+    def quasi(self, u, par=False, *args, **kwargs):
         """ Generates the Quasi matrix representing the linear operator
             generated from the bilinear form when φ is fixed.
         """
         assert isinstance(u, TwoParameterState), 'Bilinear form requires a two parameter state! Found %s' % type(u).__name__
         # TODO: assuming here that u and phi contain the same data -> but they
         # would be part of the same state object -> so correct!
-        self.update(u.u)
+        self.update(u)
+
         # TODO: do this better; it feels like we shouldn't need to do this?
-        self.quasiOp = self.linOp.quasi(u.u, u.phi)
+        self.quasiOp = self.linOp.quasi(u.u, u.phi, *args, **kwargs)
 
         # Add any constraint operators
         if self.c_linOp is not None:
-            self.quasiOp += self.c_linOp.quasi(u.u, u.phi)
+            self.quasiOp += self.c_linOp.quasi(u.u, u.phi, *args, **kwargs)
 
         return self.quasiOp
 
     def setDisc(self, n):
         self.n_disc = n
         self.linOp.n_disc = n
-        #self.rhs.n_disc = n
-        # if self.par: self.pDer.n_disc = n
+        self.rhs.n_disc = n
 
-        # if self.c_linOp is not None:
-        #     self.c_linOp.n_disc = n
-        #     self.c_rhs.n_disc = n
+        if self.c_rhs is not None:
+            self.c_rhs.n_disc = n
+
+        if self.c_linOp is not None:
+            self.c_linOp.n_disc = n
 
     def build(self, src, diffOrder=0, matrix_name='fold', dp_name='dxdp', *args, **kwargs):
         # execute the program imports
@@ -80,8 +82,10 @@ class BiLinSys(LinSysBase):
         assert matrix_name in ['fold', 'bif'], 'Unknown matrix type {}'.format(matrix_name)
 
         # TODO: replace Create the residual function
-        # self.rhs = Residual(self.ns, n_disc=self.n_disc, name='rhs')
-        # self.rhs.build(src.eqn, src.symbol_names['eqn'])
+        rhs_symbol_name = 'rhs_' + matrix_name
+        self.rhs = Residual(self.ns, n_disc=self.n_disc, name=rhs_symbol_name)
+        self.rhs.build(getattr(src, rhs_symbol_name), src.symbol_names[rhs_symbol_name],
+                       src.n_eqn)
 
         # Create the second order operator required for fold continuation
         self.linOp = BiLinOp(self.ns, diffOrder)
@@ -95,17 +99,17 @@ class BiLinSys(LinSysBase):
             self.pDer.build(src)
 
         # Build any constraints that may be defined!
-        # if src.lin_cts is not None:
-        #     # If len(self.conditions) > 0 -> create linear operators for them!
-        #     self.c_linOp = LinOp(self.ns, diffOrder)
-        #     self.c_linOp.build(src.lin_cts, src.symbol_names['cts'])
+        if src.lin_cts is not None:
+            cts_symbol_name = 'cts_' + matrix_name
 
-        #     # Create rhs side for the condition
-        #     self.c_rhs = Residual(self.ns, n_disc=self.n_disc, name='crhs')
-        #     self.c_rhs.build(src.cts, src.symbol_names['cts'])
-        #     def pp(u):
-        #         return u
-        #     self.c_rhs.proj = lambda u: pp(u)
+            # Create rhs side for the condition
+            self.c_rhs = Residual(self.ns, n_disc=self.n_disc, name=cts_symbol_name)
+            self.c_rhs.build(getattr(src, cts_symbol_name), src.symbol_names[cts_symbol_name],
+                             src.n_cts)
+
+            # If len(self.conditions) > 0 -> create linear operators for them!
+            #self.c_linOp = LinOp(self.ns, diffOrder)
+            #self.c_linOp.build(src.lin_cts, src.symbol_names['cts'])
 
     def getConstraintsRhs(self, u):
         rhs = np.empty((self.numConstraints, 1), dtype=np.float)
@@ -113,16 +117,15 @@ class BiLinSys(LinSysBase):
             rhs[i, 0] = constraint.residual(u)
         return rhs
 
-    def update_partial(self, u):
+    def update_partial(self, u, *args, **kwargs):
         """ u: State is expected to have a Namespace providing all required parameters """
         # Update namespace parameters!
         self.setParametersPartial(u)
 
-        # XXX Update the residual
-        # self.rhs.update(u)
-        # if self.c_bilinOp is not None:
-        #     self.c_rhs.update(u)
-        #     self.rhs.values += self.c_rhs.values
+        self.rhs.update(u)
+        if self.c_rhs is not None:
+            self.c_rhs.update(u)
+            self.rhs.values += self.c_rhs.values
 
         # update constraint residuals
         try:

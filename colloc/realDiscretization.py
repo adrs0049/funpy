@@ -11,16 +11,24 @@ from colloc.OpDiscretization import OpDiscretization
 
 
 class realDiscretization(OpDiscretization):
+    """
+        Simple discretization of R^n.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = 'real'
         self.constraints = []
 
     def quasi2diffmat(self, source, *args, **kwargs):
-        c_c = source.getCoeffs()[0]
-        c_i = source.getICoeffs()
-        # print('c_c:', np.asarray(c_c), ' c_i:', np.asarray(c_i))
-        return np.asarray(c_c).item() + np.asarray(c_i).item()
+        #print('coeffs = ', source.getCoeffs()[0].coeffs)
+        c_c = np.asarray(source.getCoeffs()[0]).item()
+
+        icoeffs = source.getICoeffs()
+        integrand = source.getIntegrand()
+        for i in range(source.numNonLocal):
+            c_c += np.asarray(icoeffs[i]).item() * np.asarray(integrand[i]).item()
+
+        return c_c
 
     def instantiate(self, source, *args, **kwargs):
         # Move this somewhere else
@@ -35,12 +43,22 @@ class realDiscretization(OpDiscretization):
 
     def matrix(self, *args, **kwargs):
         n, m = self.source.linOp.shape
+        self.projection = np.eye(n)
         M = self.instantiate(self.source.quasiOp)
-        self.S0 = np.eye(n)
+        self.S0 = np.eye(n)   # Change of basis matrix
+        self.P = np.eye(n)    # Projection matrix
         return csr_matrix(M), np.eye(n), np.eye(n)
 
-    def projection(self):
-        return self.S0
+    def matrix_full(self, *args, **kwargs):
+        M, _, _ = self.matrix(*args, **kwargs)
+        return M
+
+    def matrix_adjoint(self, *args, **kwargs):
+        M, _, _ = self.matrix(*args, **kwargs)
+        return M.T
+
+    def rhs_detail(self, u=None):
+        return self.rhs(u=u)
 
     def rhs(self, u=None):
         if u is not None:
@@ -49,7 +67,13 @@ class realDiscretization(OpDiscretization):
 
         return self.source.rhs.values.flatten(order='F')
 
-    def diff_a(self, u=None):
-        dps = self.source.pDer(u)
+    def diff_a(self, u=None, *args, **kwargs):
+        dps = self.source.pDer(u, *args, **kwargs)
         arr = np.hstack([dp.prolong(self.shape[0]).coeffs for dp in dps]).flatten(order='F').squeeze()
         return arr
+
+    def diff_a_detail(self, *args, **kwargs):
+        return self.diff_a(*args, **kwargs)
+
+    def project_vector_cts(self, vector):
+        return vector

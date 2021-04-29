@@ -15,14 +15,13 @@ class SolverAdaptive:
         """
         Arguments: nw -> an instance of a nonlinear solver.
         """
-        self.tol = kwargs.pop('tol', 1e-8)
         self.ntol = kwargs.pop('ntol', 1e-8)
         self.ltol = kwargs.pop('ltol', 1e-10)
         self.n_min = min(7, kwargs.pop('n_min', 4))
         self.n_max = kwargs.pop('n_max', 11)
         self.nw = nw
 
-    def n_disc(self, lower_bd=17, constant=False, *args, **kwargs):
+    def n_disc(self, lower_bd=17, n_trans=10, constant=False, *args, **kwargs):
         """ The discretization sizes the solver uses.
 
         Arguments:
@@ -34,15 +33,16 @@ class SolverAdaptive:
         if constant:
             return np.array([1])
 
-        return np.unique(np.maximum(lower_bd, 1 + 2**np.arange(self.n_min, self.n_max)))
+        return np.unique(np.maximum(lower_bd, np.hstack((1 + 2**np.arange(self.n_min, n_trans), 1 + np.arange(3*2**(n_trans-2), 2**self.n_max, 2**(n_trans-2))))))
+        #return np.unique(np.maximum(lower_bd, 1 + 2**np.arange(self.n_min, self.n_max)))
 
-    def solve(self, state, verbose=False, *args, **kwargs):
+    def solve(self, state, eps=1e-9, verbose=False, *args, **kwargs):
         """ The solver method
 
             Arguments:
                 state -> Must be of BaseState type.
         """
-        n_its = self.n_disc(*args, **kwargs)
+        n_its = self.n_disc(lower_bd=state.shape[0], *args, **kwargs)
         success = np.zeros_like(n_its).astype(bool)
 
         new_state = None
@@ -72,7 +72,7 @@ class SolverAdaptive:
 
             # We only update the state variables if Newton's method was successful!
             if success[k]:
-                if d_norm < 1e-5:
+                if d_norm < eps:
                     break
 
                 new_state = nst

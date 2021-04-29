@@ -25,12 +25,17 @@ class DeflationState(BaseState):
         # Sync namespace
         self.sync_ns()
 
-    def __len__(self):
-        return self.u.n
+    @classmethod
+    def from_state(cls, other):
+        pars = {n: v for n, v in other.items()}
+        return cls(u=other.u, **pars)
 
     @property
     def u(self):
         return self.funcs[0]
+
+    def __len__(self):
+        return self.u.n
 
     def plot_values(self, cidx=0, p=2, k=1):
         return sturm_norm(self.u[cidx], p=p)

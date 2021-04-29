@@ -9,7 +9,7 @@ cimport numpy as np
 cimport cython
 
 from numbers import Number
-from scipy.fft import ifft, fft
+from scipy.fft import ifft, fft, irfft, rfft
 
 from cheb.detail import polyfit, polyval
 from cheb.chebpy import chebtec
@@ -22,17 +22,15 @@ def negative(x, **kwargs):
     if not isinstance(x, chebtec):
         return np.negative(x, **kwargs)
     else:
-        return chebtec(coeffs=-1 * x.coeffs, simplify=False, ishappy=x.ishappy)
+        return chebtec(coeffs=-1 * x.coeffs, simplify=False, eps=x.eps,
+                       maxLength=x.maxLength, ishappy=x.ishappy)
 
 def positive(x, **kwargs):
     return x
 
 def absolute(x, **kwargs):
-    #abs_values = np.abs(x.get_values())
-    # TODO: this needs proper improvement
-    #return chebtec(coeffs=polyfit(abs_values), maxLength=2**10,
-    #               simplify=False, ishappy=False)  # this will never be happy!
-    return chebtec(op=lambda y: np.abs(x(y)), minSamples=x.n, maxLength=2**10)
+    return chebtec(op=lambda y: np.abs(x(y)), minSamples=x.n,
+                   maxLength=2**10, eps=x.eps)
 
 def power(x1, x2, **kwargs):
     # if we have one element that is a ndarray or Number we want that to be x2!
@@ -43,7 +41,7 @@ def power(x1, x2, **kwargs):
         # Do nothing just return the function
         if x2 == 1.0:
             return x1
-        return chebtec(op=lambda x: np.power(x1(x), x2), minSamples=2 * x1.n)
+        return chebtec(op=lambda x: np.power(x1(x), x2), minSamples=2 * x1.n, eps=x1.eps)
     else:
         return NotImplemented
 
@@ -67,17 +65,20 @@ def add(x1, x2, **kwargs):
 
         # simply add to the values
         ishappy = x1.ishappy
+        eps = x1.eps
 
     # If one of the arguments is a trigtech -> build a chebtec and then call multiply
     elif isinstance(x1, trigtech):
-        x1_cheb = chebtec(op=lambda x: x1.feval(x))
+        eps = max(x1.eps, x2.eps)
+        x1_cheb = chebtec(op=lambda x: x1.feval(x), eps=eps)
         result = add(x1_cheb, x2, **kwargs)
-        return trigtech(op=lambda x: result.feval(x))
+        return trigtech(op=lambda x: result.feval(x), eps=eps)
 
     elif isinstance(x2, trigtech):
-        x2_cheb = chebtec(op=lambda x: x2.feval(x))
+        eps = max(x1.eps, x2.eps)
+        x2_cheb = chebtec(op=lambda x: x2.feval(x), eps=eps)
         result = add(x1, x2_cheb, **kwargs)
-        return trigtech(op=lambda x: result.feval(x))
+        return trigtech(op=lambda x: result.feval(x), eps=eps)
 
     elif isinstance(x2, type(x1)):  # other is expected to be a chebfun object now
         nf = x1.n
@@ -111,6 +112,7 @@ def add(x1, x2, **kwargs):
 
         # update values
         ishappy = x1.ishappy and x2.ishappy
+        eps = max(x1.eps, x2.eps)
 
     else:
         return NotImplemented
@@ -118,16 +120,16 @@ def add(x1, x2, **kwargs):
     # Create the new function
     if out is not None:
         out[0].ishappy = ishappy
+        out[0].eps = eps
         return out[0]
     else:
         if isinstance(x1, trigtech) or isinstance(x2, trigtech):
-            return trigtech(coeffs=c, simplify=False, ishappy=ishappy)
+            return trigtech(coeffs=c, simplify=False, ishappy=ishappy, eps=eps)
         else:
-            return chebtec(coeffs=c, simplify=False, ishappy=ishappy)
+            return chebtec(coeffs=c, simplify=False, ishappy=ishappy, eps=eps)
 
 def subtract(x1, x2, **kwargs):
     return add(x1, negative(x2), **kwargs)
-
 
 """ Multiplication support """
 def coeff_times(fc, gc):
@@ -139,7 +141,7 @@ def coeff_times(fc, gc):
     aprime = fft(np.vstack((t, t[:0:-1, :])), axis=0)
     Tfg = ifft(aprime * xprime, axis=0)
     hc = 0.25 * np.vstack((Tfg[0, :], Tfg[1:, :] + Tfg[:0:-1]))
-    return hc[:mn, :]
+    return hc[:mn, :].real
 
 def coeff_times_main(f, g):
     # get the sizes
@@ -161,14 +163,13 @@ def coeff_times_main(f, g):
         coeffs = coeff_times(f, g)
         if np.all(np.isreal(f)):
             pos = True
-    elif np.all(f.conj() == g):
-        coeffs = coeff_times(f.conj(), g)
+    elif np.all(np.conj(f) == g):
+        coeffs = coeff_times(np.conj(f), g)
         pos = True
     else:
         coeffs = coeff_times(f, g)
 
-    # TODO: check this application of real!
-    return np.asfortranarray(np.real(coeffs)), pos
+    return np.asfortranarray(coeffs), pos
 
 def multiply(x1, x2, **kwargs):
     # if we have one element that is a ndarray or Number we want that to be x2!
@@ -189,6 +190,7 @@ def multiply(x1, x2, **kwargs):
             c = np.zeros_like(c, order='F')
 
         ishappy = x1.ishappy
+        eps = x1.eps
 
     elif isinstance(x2, np.ndarray):
         if x2.size == 1:
@@ -210,17 +212,20 @@ def multiply(x1, x2, **kwargs):
             c = x1.coeffs * x2
 
         ishappy = x1.ishappy
+        eps = x1.eps
 
     # If one of the arguments is a trigtech -> build a chebtec and then call multiply
     elif isinstance(x1, trigtech):
-        x1_cheb = chebtec(op=lambda x: x1.feval(x))
+        eps = max(x1.eps, x2.eps)
+        x1_cheb = chebtec(op=lambda x: x1.feval(x), eps=eps)
         result = multiply(x1_cheb, x2, **kwargs)
-        return trigtech(op=lambda x: result.feval(x))
+        return trigtech(op=lambda x: result.feval(x), eps=eps)
 
     elif isinstance(x2, trigtech):
-        x2_cheb = chebtec(op=lambda x: x2.feval(x))
+        eps = max(x1.eps, x2.eps)
+        x2_cheb = chebtec(op=lambda x: x2.feval(x), eps=eps)
         result = multiply(x1, x2_cheb, **kwargs)
-        return trigtech(op=lambda x: result.feval(x))
+        return trigtech(op=lambda x: result.feval(x), eps=eps)
 
     # We interpret multiplication with another numpy array of size equal to
     # the size of the chebpy object as element-wise multiplication in
@@ -236,8 +241,9 @@ def multiply(x1, x2, **kwargs):
             c = out[0].coeffs
 
         # do multiplication in coefficient space
+        eps = max(x1.eps, x2.eps)
         c, pos = coeff_times_main(x1.coeffs, x2.coeffs)
-        c = simplify_coeffs(c)
+        c = simplify_coeffs(c, eps=eps)
 
         # Simply copy the happy status
         ishappy = x1.ishappy and x2.ishappy
@@ -248,11 +254,6 @@ def multiply(x1, x2, **kwargs):
             v = polyval(c)
             c = polyfit(np.abs(v))
             c = np.asarray(c, order='F')
-
-        # Let's make sure that the imaginary part in the above is small!
-        # TODO: report this as a warning!
-        # assert np.max(np.abs(np.imag(c))) < 1e-8, 'chebtec.__mul__ encountered imaginary part!
-        # ||Im(c)|| = %.6g.' % (np.max(np.abs(np.imag(c))))
     else:
         return NotImplemented
 
@@ -260,9 +261,10 @@ def multiply(x1, x2, **kwargs):
     if out is not None:
         out[0].ishappy = ishappy
         out[0].coeffs = c
+        out[0].eps = eps
         return out[0]
     else:
-        return chebtec(coeffs=c, simplify=False, ishappy=ishappy)
+        return chebtec(coeffs=c, simplify=False, ishappy=ishappy, eps=eps)
 
 def divide(x1, x2, **kwargs):
     return true_divide(x1, x2, **kwargs)
@@ -276,7 +278,8 @@ def true_divide(x1, x2, **kwargs):
 
     # Deal with this first!
     if isinstance(x1, Number):
-        fun = chebtec(op=lambda x: np.divide(x1, x2(x)), minSamples=2 * x2.n)
+        eps = x2.eps
+        fun = chebtec(op=lambda x: np.divide(x1, x2(x)), minSamples=2 * x2.n, eps=eps)
         if out is not None:
             out[0].coeffs = fun.coeffs
             return out[0]
@@ -295,14 +298,18 @@ def true_divide(x1, x2, **kwargs):
 
     # Deal with the division!
     if isinstance(x2, Number):
+        eps = x1.eps
         c /= x2
     elif isinstance(x2, np.ndarray):
+        eps = x1.eps
         if x1.m == 1:
             c /= x2
         else:
             c /= np.tile(x2, (x1.n, 1))
     elif isinstance(x2, type(x1)):
-        fun = chebtec(op=lambda x: np.divide(x1(x), x2(x)), minSamples=x1.n + x2.n)
+        eps = max(x1.eps, x2.eps)
+        fun = chebtec(op=lambda x: np.divide(x1(x), x2(x)),
+                      minSamples=x1.n + x2.n, eps=eps)
         if out is not None:
             out[0].coeffs = fun.coeffs
             return out[0]
@@ -311,6 +318,7 @@ def true_divide(x1, x2, **kwargs):
         return NotImplemented
 
     if out is not None:
+        out[0].eps = eps
         return out[0]
     else:
-        return chebtec(coeffs=c, ishappy=x1.ishappy)
+        return chebtec(coeffs=c, ishappy=x1.ishappy, eps=eps)

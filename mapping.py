@@ -37,5 +37,9 @@ class Mapping(object):
     def __str__(self):
         return 'Map([%.2f, %.2f] -> [-1, 1])' % (self.ends[0], self.ends[1])
 
+    def __eq__(self, other):
+        return np.all(self.ends == other.ends)
+
     def inv(self):
-        return Mapping(fwd=self.inv, der=lambda x: 1./self.der(x), inv=self.fwd)
+        return Mapping(self.ends, fwd=self.inv,
+                       der=lambda x: 1./self.der(x), inv=self.fwd)

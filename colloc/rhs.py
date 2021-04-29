@@ -1,9 +1,12 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
+import warnings
 import numpy as np
 from numbers import Number
 from colloc.tools import execute_pycode
+
+from states.tp_state import TwoParameterState
 
 
 class Residual:
@@ -20,33 +23,36 @@ class Residual:
         # store the current rhs
         self.values = kwargs.pop('values', None)
 
-    def build(self, src, symbol_name, *args, **kwargs):
+    def build(self, src, n_eqn, *args, **kwargs):
         debug = kwargs.get('debug', False)
 
-        # Execute code for the rhs
-        execute_pycode(src, self.ns, debug=debug)
-        self.collect_symbols_from_ns(lambda idx: '{0}{1}'.format(symbol_name, idx), self.rhs)
+        # Generate pycode
+        pycode = src.emit()
 
-    def update(self, u):
+        # Execute code for the rhs
+        execute_pycode(pycode, self.ns, debug=debug)
+
+        # Now lookup the required symbols from the namespace
+        for func in src.functions:
+            try:
+                nrhs = self.ns[func.symbol_name]
+            except KeyError:
+                raise RuntimeError("Could not find \"{0:s}\" in namespace!".
+                                   format(func.symbol_name))
+
+            # Append the found executable function!
+            self.rhs.append(nrhs)
+
+    def update(self, u, *args, **kwargs):
         n, m = (self.n_disc, u.shape[1])
         self.values = np.zeros((n, m), order='F', dtype=np.complex128 if u.istrig else np.float64)
 
         # Compute the right hand side values
         for i, rhs in enumerate(self.rhs):
-            crhs = rhs(*u)
+            crhs = rhs(*u, *args, **kwargs)
 
             # make sure that the function is long enough
             self.values[:, i] = crhs.prolong_coeffs(n)[:, 0]
-
-    def collect_symbols_from_ns(self, symbol_name, dest):
-        idx = 0
-        while True:
-            try:
-                func = self.ns[symbol_name(idx)]
-                dest.append(func)
-                idx += 1
-            except KeyError:
-                break
 
     def __pos__(self):
         return self

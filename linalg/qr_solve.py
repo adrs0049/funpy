@@ -40,6 +40,7 @@ class QRCholesky:
         #if self.rank == 0:
         #    self.rank = self.pseudo_rank(self.Rtot)
         #print('rank = ', self.rank, ' / ', max(self.n, self.m), ' ε = ', self.eps)
+        #print('internal_par = ', self.internal_embedding_parameter, ' (m, n) = ', self.m, ', ', self.n)
 
         # The matrix R1 now has the following form if the matrix A is rank deficient.
         #
@@ -108,7 +109,7 @@ class QRCholesky:
         signR = np.real(np.sign(diagR).prod())
         logdet = np.real(np.log(diagR).sum())
         sign = (-1)**(self.k + m) * signR
-        return sign * np.exp(logdet)
+        return sign * np.exp(np.longdouble(logdet))
 
     def detH(self, col=-1):
         """
@@ -129,14 +130,13 @@ class QRCholesky:
 
         H = np.delete(self.Rtot, to_delete, 1)
         sign, logdet = slogdet_hessenberg(H)
-        return (-1)**(m + self.k) * sign * np.exp(logdet)
+        return (-1)**(m + self.k) * sign * np.exp(np.longdouble(logdet))
 
     def tangent_vector(self):
         """ Should this really be here?
 
             t = P (-w 1) / sqrt(1 + w^T w)
         """
-        # print('jbar = ', self.jbar)
         tangent = np.vstack((-self.jbar, 1)) / sqrt(1. + np.dot(self.jbar.T, self.jbar))
         return tangent[self.C]
 

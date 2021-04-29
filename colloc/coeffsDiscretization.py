@@ -30,6 +30,12 @@ class coeffsDiscretization(OpDiscretization):
         # This should return the
         return max(0, self.source.getOutputSpace())
 
+    def quasi2diffmat(self, source, *args, **kwargs):
+        return NotImplemented
+
+    def quasi2precond(self, source, *args, **kwargs):
+        return NotImplemented
+
     def instantiate_i(self, source, *args, **kwargs):
         n, m = source.shape
         M = np.empty(n, dtype=object)
@@ -68,7 +74,8 @@ class coeffsDiscretization(OpDiscretization):
         # Currently only has support for one ODE - nothing fancy yet
         n, m = source.shape
         for i, j in itertools.product(range(n), range(m)):
-            M[j, i], S[i, j] = self.quasi2diffmat(source[i, j], basis_conv=(i == j), *args, **kwargs)
+            M[j, i], S[i, j] = self.quasi2diffmat(source[i, j], basis_conv=(i == j),
+                                                  adjoint=True, *args, **kwargs)
 
         return M, S
 

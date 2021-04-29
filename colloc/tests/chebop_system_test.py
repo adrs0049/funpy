@@ -15,7 +15,7 @@ class TestChebOpSystem:
         op.bcs = [lambda u, v: u(-np.pi) + 1, lambda u, v: v(np.pi)]
 
         # guess
-        soln, success, res = op.solve()
+        soln, success, res = op.solve(adaptive=False)
 
         assert_(op.islinear)
         assert_(success)

@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
+import os
+import h5py as h5
 import numpy as np
 from numpy.testing import assert_, assert_raises, assert_almost_equal
 
@@ -164,3 +166,19 @@ class TestParameterArithmetic:
 
         assert_(p1.name == 'a')
         assert_(p2.name == 'a')
+
+    def test_io(self):
+        p = Parameter(b=2.0)
+        fname = 'funpy_parameter_test.h5'
+
+        hdf5_file = h5.File(fname, 'w')
+        p.writeHDF5(hdf5_file)
+        hdf5_file.close()
+
+        # Read the file
+        hdf5_file = h5.File(fname, 'r')
+        g = Parameter.from_hdf5(hdf5_file)
+
+        assert_(g.name == p.name)
+        assert_(g.value == p.value)
+        os.remove(fname)

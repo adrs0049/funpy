@@ -28,10 +28,10 @@ class Parameter(np.lib.mixins.NDArrayOperatorsMixin):
         return _copy
 
     def __str__(self):
-        return '{0:s} = {1:.2f}'.format(self.name, self.value)
+        return '{0:s} = {1:.2g}'.format(self.name, self.value)
 
     def __repr__(self):
-        return '{0:s}[{1:s} = {2:.2f}]'.format(type(self).__name__, self.name, self.value)
+        return '{0:s}[{1:s} = {2:.2g}]'.format(type(self).__name__, self.name, self.value)
 
     def __int__(self):
         return int(self.value)
@@ -63,6 +63,16 @@ class Parameter(np.lib.mixins.NDArrayOperatorsMixin):
         if func not in HANDLED_FUNCTIONS:
             return NotImplemented
         return HANDLED_FUNCTIONS[func](*args, **kwargs)
+
+    @classmethod
+    def from_hdf5(cls, hdf5_file):
+        name = hdf5_file.attrs["name"]
+        value = hdf5_file.attrs["value"]
+        return cls(**{name: value})
+
+    def writeHDF5(self, fh):
+        fh.attrs["name"] = self.name
+        fh.attrs["value"] = self.value
 
 
 def implements(np_function):

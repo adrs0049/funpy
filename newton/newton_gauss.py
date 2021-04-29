@@ -42,6 +42,7 @@ class NewtonGaussContinuationCorrector(LinearOperator):
     """
     def __init__(self, state, operator, ks=[], dtype=None, *args, **kwargs):
         self.Du = DeflatedResidual(state, operator, par=True, ks=ks, dtype=dtype)
+        self.proj = self.Du.proj
         self.Da = self.Du.colloc.diff_a(state)
 
         # Basic setup for the linear operator
@@ -67,15 +68,15 @@ class NewtonGaussContinuationCorrector(LinearOperator):
     def inverse_basis(self):
         return self.Du.inverse_basis()
 
-    def matrix_full(self, state):
-        full_u = self.Du.matrix_full()
+    def matrix_full(self, state, *args, **kwargs):
+        full_u = self.Du.matrix_full(*args, **kwargs)
         # TODO return full version of this!
         full_a = self.Du.colloc.diff_a(state)
         # TODO: improve this write version of this for CSC
         return csr_vappend(full_u.T.tocsr(), sps.csr_matrix(full_a)).T
 
     def adjoint(self, state):
-        adjoint_u = self.Du.adjoint()
+        adjoint_u = self.Du.adjoint(bc=False)
         adjoint_a = self.Du.colloc.diff_a_adjoint(state)
         return csr_vappend(adjoint_u.tocsr(), sps.csr_matrix(adjoint_a))
 
@@ -89,13 +90,11 @@ class NewtonGaussContinuationCorrector(LinearOperator):
             where D_u F(a, u) is a n x n matrix:
                   D_a F(a, u) is a n x 1 matrix
         """
-        # The action of this matrix can then be computed by
         return self.Du._matvec(dx[:-1]) + self.Da * dx[-1]
 
-    def _rmatvec(self, x):
+    def _rmatvec(self, dx):
         """ Implements x = A^H y """
-        assert False, ''
-        return np.zeros_like(x)
+        return np.hstack((self.Du._rmatvec(dx), np.dot(self.Da, dx)))
 
     def to_matrix(self):
         return self.mat

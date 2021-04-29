@@ -11,8 +11,6 @@ from math import sqrt
 import warnings
 from copy import deepcopy
 
-from sparse.csr import eliminate_zeros_csr
-
 from fun import Fun, h1norm, norm, norm2
 from fun import minandmax
 from cheb.chebpts import quadwts
@@ -23,7 +21,12 @@ from newton.pseudo_arclength import PseudoArcContinuationCorrector
 from newton.newton_gauss import NewtonGaussContinuationCorrector
 from newton.deflated_residual import DeflatedResidual
 from linalg.qr_solve import QRCholesky
+from bif.LinearSystem import LinearSystem
+from nlep.nullspace import right_null_vector
 from support.tools import orientation_y, logdet, functional, Determinant
+from newton.solver_norms import sprod, nnorm, rescale
+
+from bif.fold_solver import AugmentedFoldSolver
 
 try:
     from scikits import umfpack
@@ -31,40 +34,13 @@ except ModuleNotFoundError:
     print('umfpack not installed!')
 
 
-# NUMBERS FOR NLEQ_ERR
-SMALL = 1.0e-150
-EPMACH = 1.0e-17
-THETA_MIN = 1e-5
+# TODO MOVE ME!
 THETA_MAX = 0.5
-THETA_BAR = 0.25  # Theoretically this is 0.25; but practice shows this needs to be tighter
-THETA_BAR_PRED = 0.25  # Theoretically this is 0.25; but practice shows this needs to be tighter
-KAPPA_MAX = 1e5
 
-def nnorm(u, scale=None, p=2):
-    if scale is None:
-        return u.norm(p=p)
-    else:
-        return (u * scale).norm(p=p)
-
-def sprod(v1, v2, scale=None):
-    if scale is not None:
-        rval = np.inner(v1 * scale, v2 * scale)
-    else:
-        rval = np.inner(v1, v2)
-
-    # extract result
-    if rval.size > 1:
-        rval = np.sum(np.diagonal(rval))
-
-    # TODO: checkme!
-    return np.real(rval)
-
-def rescale(x, xa, xthresh):
-    return 1. / 0.5 * (x + xa)
 
 class NewtonBase:
     def __init__(self, system, LinOp, method='qrchol',
-                 maxiter=20, inner_maxiter=100, outer_k=30, *args, **kwargs):
+                 maxiter=20, inner_maxiter=200, outer_k=30, damp=0.0, *args, **kwargs):
         """
         Arguments:
 
@@ -84,6 +60,7 @@ class NewtonBase:
         self.system = system
         self.linop = LinOp
         self.angle = 0.0
+        self.Pr = None
 
         self.iterates = []
         self.steps = []
@@ -130,13 +107,17 @@ class NewtonBase:
         # Select the numerical method
         self.isolve_default = dict(lgmres=self.isolve_lgmres,
                                    spqr=self.isolve_spqr,
+                                   lsmr=self.isolve_lsmr,
                                    qrchol=self.isolve_qrchol,
+                                   #fold=self.isolve_fold,
+                                   fold=self.isolve_qrchol,  # OLD REMOVE ONCE FIXED!
                                    spsolve=self.isolve_spsolve,
                                    gcrotmk=self.isolve_gcrotmk,
                                   ).get(method, method)
 
         self.method = dict(lgmres=scipy.sparse.linalg.lgmres,
                            spqr=None,
+                           lsmr=scipy.sparse.linalg.lsmr,
                            spsolve=scipy.sparse.linalg.spsolve,
                            gcrotmk=scipy.sparse.linalg.gcrotmk,
                           ).get(method, method)
@@ -144,11 +125,15 @@ class NewtonBase:
         self.req_precd = dict(lgmres=True,
                            spqr=False,
                            qrchol=True,
+                           fold=True,
+                           lsmr=True,
                            spsolve=False,
                            gcrotmk=True,
                           ).get(method, method)
 
         self.method_kw = dict(maxiter=inner_maxiter)
+
+        print('Newton = ', self.method)
 
         # For the moment simply do what scipy does when calling lgmres for
         # Newton's method
@@ -175,6 +160,8 @@ class NewtonBase:
             self.method_kw['discard_C'] = True
             self.method_kw['atol'] = 0
             self.method_kw['tol'] = self.ltol
+        elif self.method is scipy.sparse.linalg.lsmr:
+            self.method_kw['maxiter'] = inner_maxiter
 
     @property
     def dtype(self):
@@ -184,6 +171,7 @@ class NewtonBase:
 
     def setDisc(self, n):
         self.system.setDisc(n)
+        self.cleanup()
 
     def cleanup(self):
         """ Execute clean-ups depending on what linear method we use! """
@@ -194,40 +182,71 @@ class NewtonBase:
             # Reset the stored outer_v values
             self.method_kw['CU'] = []
 
-    def to_state(self, coeffs):
-        """ Constructs a new state from coefficients """
-        return coeffs
+        # Cleanup stuff
+        self.qrchol = None
+        self.Pr = None
 
-    def residual(self, x, rhs, info=0, atol=1e-4, rtol=1e-5):
-        success = np.allclose(self.linOp.matvec(x), rhs, atol=atol, rtol=rtol) and info == 0
-        res = self.linOp.matvec(x) - rhs
-        res = np.max(np.hypot(np.real(res), np.imag(res)))
-        return success, res
+    def to_fun(self, coeffs, ishappy=True):
+        """ TODO: the collocator should do this! Map coefficients to function """
+        # If we have a projection defined -> apply it.
+        if self.Pr is not None:
+            coeffs = self.Pr.dot(coeffs)
+
+        # Create the new function object
+        m = coeffs.size // self.n_eqn
+        return Fun(coeffs=coeffs.reshape((m, self.n_eqn), order='F'),
+                   simplify=False, eps=np.finfo(float).eps,
+                   domain=self.system.domain,
+                   ishappy=ishappy, type=self.function_type)
+
+    def to_state(self, coeffs):
+        return NotImplemented
 
     def isolve(self, rhs, *args, **kwargs):
-        # Dispatch function to the linear solver
-        if rhs.size // self.n_eqn > 20:
-            return self.isolve_default(rhs, *args, **kwargs)
-        else:
-            return self.isolve_qrchol(rhs, *args, **kwargs)
+        return self.isolve_default(rhs, *args, **kwargs)
+
+    def isolve_lsmr(self, rhs, x0=None, *args, **kwargs):
+        success = False
+        coeffs, istop, itn, normr, normar, norma, conda, normx = LAS.lsmr(self.linOp, rhs,
+                                                                          atol=self.ltol, x0=x0,
+                                                                          btol=self.ltol,
+                                                                          show=False, conlim=0,
+                                                                          **self.method_kw)
+        print('istop = ', istop)
+        success = not (istop == 7)
+
+        # Use the QR decomposition to solve the problem now
+        coeffs = self.linOp.prcond._matvec(coeffs)
+
+        if not success:
+            self.solve_inner_failure = True
+            success = False
+            #self.cleanup()
+
+            warnings.warn('LSMR({0:d}; {1:s}): info = {2:d}, tol = {3:.4g}, res = {4:.4g}; K(a) = {5:.4g} did not converge!'.\
+                          format(itn, str(self.shape), istop, self.ltol, normr, conda),
+                          RuntimeWarning)
+
+        # construct a new state
+        return self.to_state(coeffs), success
 
     def isolve_lgmres(self, rhs, x0=None, *args, **kwargs):
         success = False
         coeffs, info = LAS.lgmres(self.linOp, rhs, x0, M=self.precd, **self.method_kw)
-        success, res = self.residual(coeffs, rhs, info=info)
+        success = (info == 0)
 
         if info > 0:
             self.solve_inner_failure = True
+            success = False
             self.cleanup()
 
-            warnings.warn('LGMRES(%d; %s): ||res|| = %.4g; info = %d, tol = %.4g, did not converge!' \
-                          % (self.method_kw['outer_k'], self.shape, res, info, self.ltol), RuntimeWarning)
+            warnings.warn('LGMRES({0:d}; {1:s}): info = {2:d}, tol = {3:.4g}, did not converge!'.\
+                          format(self.method_kw['outer_k'], str(self.shape), info, self.ltol),
+                          RuntimeWarning)
 
-            #return self.isolve_spqr(rhs, *args, **kwargs)
         elif info < 0:
-            print('LGMRES(%d): ||res|| = %.4g received illegal input or breakdown!' % (self.method_kw['outer_k'], res))
-        elif not success:
-            print('LGMRES(%d): ||res|| = %.4g claims to have worked but residual check failed!' % (self.method_kw['outer_k'], res))
+            warnings.warn('LGMRES({0:d}): received illegal input or breakdown!'.\
+                          format(self.method_kw['outer_k']), RuntimeWarning)
 
         # construct a new state
         return self.to_state(coeffs), success
@@ -270,12 +289,36 @@ class NewtonBase:
 
         return self.to_state(coeffs), success
 
+    def isolve_fold(self, rhs, *args, **kwargs):
+        if self.qrchol is None:
+            self.qrchol = AugmentedFoldSolver(self.linOp)
+
+        # solve the system
+        coeffs = self.qrchol.solve(rhs)
+
+        # check whether we found a solution!
+        if coeffs is not None:
+            # TODO: Fix this; currently this uses the old matrix to compute the residual!
+            success, res = self.residual(coeffs, rhs, info=0, atol=1e-2, rtol=1e-3)
+        else:
+            success = False
+            res = np.inf
+
+        # FORCE THIS FOR THE MOMENT!
+        success = True
+
+        if not success:
+            print('QRCholeskyFold: ||res|| = {0:.4g}; tol = {1:.4g}; Did not find a solution!'.
+                  format(res, self.ltol))
+
+        return self.to_state(coeffs), success
+
     def isolve_qrchol(self, rhs, *args, **kwargs):
         eps = 1e-14
         if self.qrchol is None:
             self.B = self.linOp.to_matrix()
+            self.Pr = self.linOp.proj
 
-            # self.qrchol2 = QRCholesky(self.B, eps=eps)
             # This is P-inverse; where P = diag(A)
             self.P = self.precd.to_matrix()
             self.A = (self.B * self.P).todense()
@@ -292,23 +335,8 @@ class NewtonBase:
 
         # Use the QR decomposition to solve the problem now
         coeffs = self.qrchol.solve(rhs)
-        coeffs = self.P * coeffs
-
-        # check whether we found a solution!
-        if coeffs is not None:
-            success, res = self.residual(coeffs, rhs, info=0)
-        else:
-            success = False
-            res = np.inf
-
-        if self.qrchol.is_singular:
-            success = res <= 1e-6
-
-        if not success:
-            print('QRCholesky: ||res|| = %.4g; ε = %.2g; cd = %.2g; tol = %.4g; rank = %d; did not find a solution!'
-                  % (res, eps, self.qrchol.cond, self.ltol, self.qrchol.rank))
-
-        return self.to_state(coeffs), success
+        coeffs = self.P.dot(coeffs)
+        return self.to_state(coeffs), True
 
     def isolve_spsolve(self, rhs, *args, **kwargs):
         if self.lu is None:
@@ -664,11 +692,13 @@ class NewtonBase:
             # Call the solver
             dxk, success = self.isolve(-self.linOp.b)
             normdx = nnorm(dxk, xscale)
+            #print('v%d = ' % k, np.asarray(dxk), ' |v| = %.4g' % dxk.norm())
+            #print('dx%d= ' % k, dxk, ' |v| = %.4g' % dxk.norm())
 
             # We quit if we failed to solve the linear system.
             if not success:
                 warnings.warn('QNERR: Failed to solve linear system after %d iterations! Norm: %.6g' \
-                              % (k, self.normfk), RuntimeWarning)
+                              % (k+1, self.normfk), RuntimeWarning)
                 newton_success = False
                 if not nleqcalled: self.newton_success = False
                 return x, newton_success, k, normdx
@@ -693,9 +723,12 @@ class NewtonBase:
             sigma[0] = normdx**2
             dx[0] = dx0
 
+        #print('x%d = ' % k, np.asarray(x))
         while not newton_success and k <= miter:
             if not skipstep:
                 x += dx[k]
+                #print('x%d = ' % k, np.asarray(x), ' ó = ', sigma[:k+1], '\n')
+                #print('x%d = ' % k, ' ó = ', sigma[:k+1], ' ε = ', tol, '\n')
                 if sigma[k] <= tol * tol:
                     k += 1
                     newton_success = True
@@ -707,9 +740,10 @@ class NewtonBase:
             fxk = -self.linOp.rhs(x)
             self.normfk = self.to_state(fxk).norm()
             v, success = self.isolve(fxk)
+            #print('v%d = ' % (k+1), v, ' |v| = %.4g ' % nnorm(v))
 
             if not success:
-                warnings.warn('QNERR: Failed to solve linear system after %d iterations!' % k, RuntimeWarning)
+                warnings.warn('QNERR: Failed to solve linear system after %d iterations!' % (k+1), RuntimeWarning)
                 newton_success = False
                 if not nleqcalled: self.newton_success = False
                 break
@@ -720,15 +754,20 @@ class NewtonBase:
 
             alpha_kp1 = sprod(v, dx[k], xscale) / sigma[k]
             thetak = sqrt(sprod(v, v, xscale) / sigma[k])
+            #print('thetak = ', thetak, ' |v|2 = ', sprod(v, v, xscale))
             if self.debug:
                 print('\tkq = %d; α = %.4g; θ = %.4g; |v|: %.4g; |Δx|: %.4g; ε = %.2g; σ = %.2g'
                       % (k, alpha_kp1, thetak, v.norm(), dx[k].norm(), tol, sigma[k]))
 
             # compute new step
             s = 1.0 - alpha_kp1
-            dx[k+1] = v / s
+            # TODO: this sometimes causes states to reshape themselves!
+            dx[k+1] = v
+            dx[k+1] /= s
+            #print('dx%d= ' % (k+1), np.asarray(dx[k+1]), ' |v| = %.4g' % dx[k+1].norm())
             sigma[k+1] = sprod(dx[k+1], dx[k+1], xscale)
             normdx = np.sqrt(sigma[k+1])
+            #print('v%d = ' % (k+1), v, ' σ = ', sigma[k+1], ' |v| = %.4g ' % v.norm(), ' Θ = ', thetak)
             k += 1
 
             # callback
@@ -737,7 +776,7 @@ class NewtonBase:
             if thetak > THETA_MAX:
                 if not nleqcalled:
                     warnings.warn('QNERR: Failed to solve nonlinear system after {0:d} iterations! θ = {1:.4g} greater than 1/2 tolerance.'
-                              .format(k, thetak), RuntimeWarning)
+                              .format(k+1, thetak), RuntimeWarning)
                 newton_success = False
                 self.lambda_limitation = True
                 if not nleqcalled: self.newton_success = False

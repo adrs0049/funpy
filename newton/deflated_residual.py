@@ -41,7 +41,9 @@ class DeflatedResidual(LinearOperator):
 
         # Create matrices
         self.M, self.P, self.S = self.colloc.matrix()
+        self.proj = self.colloc.P
         self.b = self.colloc.rhs()
+        #print('M = ', self.M.shape)
 
         # make sure shapes are correct
         if np.product(u.shape) != self.M.shape[0]:
@@ -74,6 +76,9 @@ class DeflatedResidual(LinearOperator):
             except Exception as e:
                 raise e
 
+        # TODO: improve this!
+        #self.prcond = self.precond()
+
         # update the right hand side with the deflation number
         if self.known_solutions:
             self.b = self.b * self.eta
@@ -90,11 +95,11 @@ class DeflatedResidual(LinearOperator):
     def inverse_basis(self):
         return self.colloc.matrix_inverse_basis()
 
-    def adjoint(self):
-        return self.colloc.matrix_adjoint()
+    def adjoint(self, *args, **kwargs):
+        return self.colloc.matrix_adjoint(*args, **kwargs)
 
-    def matrix_full(self):
-        return self.colloc.matrix_full()
+    def matrix_full(self, *args, **kwargs):
+        return self.colloc.matrix_full(*args, **kwargs)
 
     def precond(self):
         return DeflatedResidualPrecond(self.P, self.b, dtype=self.dtype,
@@ -156,6 +161,8 @@ class DeflatedResidual(LinearOperator):
         """
         # If no known solutions we bail and simply compute the regular part
         if not self.known_solutions:
+            # Apply preconditioner
+            #return self.M._mul_vector(self.prcond._matvec(c))
             return self.M._mul_vector(c)
 
         # Compute the derivative of eta
@@ -165,13 +172,20 @@ class DeflatedResidual(LinearOperator):
         return self.eta * self.M._mul_vector(c) + self.b * deta
 
     def _rmatvec(self, x):
-        """ Implements x = A^H y """
-        assert False, ''
+        """ Implements x = A^T y """
         if self.MT is None:
             self.MT = self.M.transpose()
-        res = self.MT * x - self.deta * np.dot(self.b, x)
-        res *= self.eta
-        return res
+
+        if not self.known_solutions:
+            #return self.prcond._rmatvec(self.MT._mul_vector(x))
+            return self.MT._mul_vector(x)
+
+        # Compute the derivative of eta
+        deta = self.functional(x)
+        assert False, 'FIXME!'
+
+        # The b here should be just F(u)
+        return self.eta * self.MT._mul_vector(x) + self.b * deta
 
     def to_matrix(self):
         """ Faster than tosparse -> since whenever we are not deflating we
@@ -182,9 +196,11 @@ class DeflatedResidual(LinearOperator):
         else:
             return self.tosparse()
 
+
 class DeflatedResidualPrecond(LinearOperator):
     def __init__(self, Pf, b, dtype=None, *args, **kwargs):
         self.Pf = Pf
+        self.PfT = None
         self.b = b
 
         self.shape = self.Pf.shape
@@ -218,6 +234,15 @@ class DeflatedResidualPrecond(LinearOperator):
         term1 = self.Pf.dot(x)
         term2 = self.b * (self.functional(term1) / self.denom)
         return (term1 - term2) / self.eta
+
+    def _rmatvec(self, x):
+        if self.PfT is None:
+            self.PfT = self.Pf.transpose()
+
+        if self.ks == 0:
+            return self.PfT.dot(x)
+
+        assert False, 'FIXME'
 
     def to_matrix(self):
         # TODO: can we do this faster?

@@ -15,7 +15,7 @@ class TestChebOpLinear:
         op.eqn = ['diff(u, x) + u / (a * x**2 + 1)']
         op.bcs = [lambda u: u(-1) - 1]
 
-        soln, success, res = op.solve()
+        soln, success, res = op.solve(adaptive=False)
 
         assert_(success)
         assert_(res < 1e-9)
@@ -33,7 +33,7 @@ class TestChebOpLinear:
         op.bcs = [lambda u: u(-1) - 1, lambda u: u(1) - 1]
         g = Fun(op=[lambda x: np.ones_like(x)])
         g.prolong(n)
-        soln, success, res = op.solve(f=g)
+        soln, success, res = op.solve(f=g, adaptive=False)
 
         assert_(success)
         assert_(res < 1e-8)

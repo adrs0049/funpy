@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
+import os
+import h5py as h5
 import numpy as np
 from numpy.testing import assert_, assert_raises, assert_almost_equal
 
@@ -429,3 +431,23 @@ class TestContinuationState:
         assert_(st1.cpar == 'a')
         assert_(st1.a == 0.5)
         assert_(st2.a == 2)
+
+    def test_io(self):
+        fun1 = Fun(op=lambda x: np.cos(7 * np.pi * x / 2))
+        p1 = Parameter(a=1)
+        st1 = ContinuationState(u=fun1, a=p1)
+
+        fname = 'funpy_cont_state_test.h5'
+        hdf5_file = h5.File(fname, 'w')
+        st1.writeHDF5(hdf5_file)
+        hdf5_file.close()
+
+        # Read the file
+        hdf5_file = h5.File(fname, 'r')
+        g = ContinuationState.from_hdf5(hdf5_file)
+
+        assert_(g.funcs[0] == st1.funcs[0])
+        assert_(g.reals[0] == st1.reals[0])
+        assert_(g.signature == st1.signature)
+        assert_(np.all(g.weights == st1.weights))
+        os.remove(fname)

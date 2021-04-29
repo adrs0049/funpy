@@ -165,11 +165,17 @@ def simplify_coeffs(double[::1, :] coeffs, eps=1.48e-8):
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-def happiness_check(double[::1, :] coeffs, double [::1] tol):
+def happiness_check(double[::1, :] coeffs, double [::1] tol, Py_ssize_t minimum=17):
     cdef Py_ssize_t n = coeffs.shape[0]
     cdef Py_ssize_t m = coeffs.shape[1]
     cdef Py_ssize_t cutoff, k, rcutoff = 0
     cdef int ishappy
+
+    # Elongate to required minima for standardChop
+    # Otherwise the happiness check returns silly results.
+    if n < minimum:
+        coeffs = prolong(coeffs, minimum)
+        coeffs = polyfit(polyval(coeffs))
 
     for k in range(m):
         cutoff = standardChop(coeffs[:, k], tol[k])

@@ -9,9 +9,12 @@ from fun import h1norm, norm, norm2, sturm_norm, sturm_norm_alt, sturm_norm
 from states.base_state import BaseState
 from states.parameter import Parameter
 from support.cached_property import lazy_property
+from states.namespace import Namespace
 
 
 class TwoParameterState(BaseState):
+    __short_name__ = 'TwoParState'
+
     def __init__(self, p1=None, p2=None, u=None, phi=None, *args, **kwargs):
 
         # Signature -> (y, mu) with y = (x, phi, lambda) -> (x, phi, lambda, mu)
@@ -28,6 +31,11 @@ class TwoParameterState(BaseState):
             self.funcs[1] = deepcopy(phi)
             self.reals[0] = deepcopy(p1)
             self.reals[1] = deepcopy(p2)
+
+            # make sure both functions have the same size!
+            N = max(self.funcs[0].n, self.funcs[1].n)
+            self.funcs[0].prolong(N)
+            self.funcs[1].prolong(N)
 
         assert self.reals[0].name != self.reals[1].name, 'Parameters must have different names!'
 
@@ -100,11 +108,11 @@ class TwoParameterState(BaseState):
     """ Internal interface """
     def __repr__(self):
         masses = self.mass()
-        return '%s[%s* = %.4g, %s = %.4g; n = %d; |u| = %.4g; |φ| = %.4g; ∫u = %.4g; ∫φ = %.4g]' % \
-                (type(self).__name__, self.cpar, np.real(self.reals[1].value),
+        return '%s[%s* = %.4g, %s = %.4g; n = %d; |u| = %.3g; |φ| = %.3g; ∫u = %.3g; ∫φ = %.3g; ε = %.2g]' % \
+                (type(self).__short_name__, self.cpar, np.real(self.reals[1].value),
                  self.reals[0].name, np.real(self.reals[0].value),
                  self.u.shape[0], norm(self.u),
-                 norm(self.phi), masses[0], masses[1])
+                 norm(self.phi), masses[0], masses[1], max(self.funcs[0].eps, self.funcs[1].eps))
 
     def __str__(self):
         return self.__repr__()

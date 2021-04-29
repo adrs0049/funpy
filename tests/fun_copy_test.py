@@ -1,7 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
+import os
 import numpy as np
+import h5py as h5
 from numpy.testing import assert_, assert_raises, assert_almost_equal
 from copy import copy, deepcopy
 from fun import Fun
@@ -9,7 +11,7 @@ from fun import Fun
 
 class TestFunEval:
     def test_copy(self):
-        ff = lambda x : np.sin(2 * np.pi * x)
+        ff = lambda x: np.sin(2 * np.pi * x)
         f  = Fun(op=lambda x: np.sin(2 * np.pi * x), type='cheb')
 
         cf = copy(f)
@@ -22,7 +24,7 @@ class TestFunEval:
         assert_almost_equal(f(xs), ff(xs))
 
     def test_deepcopy(self):
-        ff = lambda x : np.sin(2 * np.pi * x)
+        ff = lambda x: np.sin(2 * np.pi * x)
         f  = Fun(op=lambda x: np.sin(2 * np.pi * x), type='cheb', domain=[0, 1])
 
         # copy the function f
@@ -46,3 +48,21 @@ class TestFunEval:
         f = Fun(op=lambda x: np.sin(2 * np.pi * x), type='cheb', domain=[-1, 1])
         g = np.ones_like(f)
         assert_almost_equal(g.coeffs, np.expand_dims(np.hstack((1, np.zeros(f.n-1))), axis=1))
+
+    def test_io(self):
+        f = Fun(op=lambda x: np.sin(2 * np.pi * x), type='cheb', domain=[-1, 1])
+        # Write the file
+        fname = 'funpy_test.h5'
+
+        hdf5_file = h5.File('funpy_test.h5', 'w')
+        f.writeHDF5(hdf5_file)
+        hdf5_file.close()
+
+        # Read the file
+        hdf5_file = h5.File('funpy_test.h5', 'r')
+        g = Fun.from_hdf5(hdf5_file)
+
+        assert_(np.all(g.domain == f.domain))
+        assert_(np.all(g.onefun.coeffs == f.onefun.coeffs))
+
+        os.remove(fname)

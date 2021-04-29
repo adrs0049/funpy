@@ -29,6 +29,8 @@ from support.tools import orientation_y, logdet, functional, Determinant
 
 from bif.operator import Operator
 from bif.point import Point, Monitor
+#from bif.fold_new_system import AugmentedFoldSystem
+from bif.fold_solver import AugmentedFoldSolver
 from bif.fold_system import AugmentedFoldSystem
 
 # NUMBERS FOR NLEQ_ERR
@@ -39,9 +41,13 @@ THETA_BAR = 0.25  # Theoretically this is 0.25; but practice shows this needs to
 class NewtonGaussPredictorCorrector(NewtonBase):
     def __init__(self, system, system_type='ng', *args, **kwargs):
         # set this
-        self.to_state = self.to_state_cont if system_type == 'ng' else self.to_state_tp
+        self.to_state = self.to_state_cont if system_type == 'qrchol' else self.to_state_tp
+        # TODO FIXME
+        # self.solve_direction_qr = self.solve_direction_qr_standard if system_type == 'qrchol' else self.solve_direction_qr_fold
 
-        system_type = dict(ng=NewtonGaussContinuationCorrector,
+        self.solve_direction_qr = self.solve_direction_qr_standard
+
+        system_type = dict(qrchol=NewtonGaussContinuationCorrector,
                           fold=AugmentedFoldSystem).get(system_type, system_type)
         super().__init__(system, system_type, *args, **kwargs)
         self.reset()
@@ -66,8 +72,7 @@ class NewtonGaussPredictorCorrector(NewtonBase):
 
         soln = self.to_fun(coeffs[:-1], ishappy=ishappy)
         ap = Parameter(**{self.cpar: np.real(coeffs[-1].item())})
-        state = ContinuationState(a=ap, u=np.real(soln)) # , n=max(1, soln.shape[0]))
-        return state
+        return ContinuationState(a=ap, u=np.real(soln))
 
     def to_state_tp(self, coeffs, ishappy=True):
         """ Constructs a new state from coefficients """
@@ -87,12 +92,12 @@ class NewtonGaussPredictorCorrector(NewtonBase):
         pp = Parameter(**{self.bpar: np.real(coeffs[-2].item())})
         return TwoParameterState(p1=pp, p2=ap, u=np.real(soln), phi=np.real(phi))
 
-    def to_fun(self, coeffs, ishappy=True):
-        """ Constructs a new state from coefficients """
-        m = coeffs.size // self.n_eqn
-        soln = Fun(coeffs=coeffs.reshape((m, self.n_eqn), order='F'), simplify=False,
-                   domain=self.system.domain, ishappy=ishappy, type=self.function_type)
-        return soln
+    def n_disc(self, lower_bd=17, constant=False, n_max=10, n_min=4, *args, **kwargs):
+        return np.array([1]) if constant else np.unique(
+            np.maximum(lower_bd, 1 + 2**np.arange(n_min, n_max)))
+
+    def solve_adaptive(self, x, *args, **kwargs):
+        pass
 
     def solve_predictor(self, state, ds, direction, *args, **kwargs):
         """ Computes the predictor. Here we use a simple Euler step """
@@ -134,11 +139,11 @@ class NewtonGaussPredictorCorrector(NewtonBase):
                            dtype=np.complex if state.u.istrig else np.float, **kwargs)
 
         # Get the basis inverse
-        op  = LinOp.matrix_full(state)
+        op  = LinOp.to_matrix()
         adj = LinOp.adjoint(state)
 
         # Assemble an operator
-        op = Operator(op, adjoint=adj, b=LinOp.b)
+        op = Operator(op, adjoint=adj, b=LinOp.b, rhs=LinOp.rhs)
         return op
 
     def compute_qr(self, state, *args, **kwargs):
@@ -157,10 +162,7 @@ class NewtonGaussPredictorCorrector(NewtonBase):
         eps = 1e-14
         self.qrchol = QRCholesky(self.A, eps=eps, rank=state.rank, *args, **kwargs)
 
-    def solve_direction_svd(self, state, compute_qr=True, *args, **kwargs):
-        return self.solve_direction_qr(state=state, compute_qr=compute_qr, *args, **kwargs)
-
-    def solve_direction_qr(self, state=None, compute_qr=True, *args, **kwargs):
+    def solve_direction_qr_standard(self, state=None, compute_qr=True, *args, **kwargs):
         if compute_qr:
             self.cpar = state.cpar
             self.bpar = state.bname
@@ -170,6 +172,25 @@ class NewtonGaussPredictorCorrector(NewtonBase):
         # Use the QR decomposition to solve the problem now
         coeffs = self.qrchol.tangent_vector()
         coeffs = self.P * coeffs
+
+        # Assemble the direction
+        direction = self.to_state(coeffs)
+        direction = direction.normalize()
+        return direction
+
+    def solve_direction_qr_fold(self, state=None, compute_qr=True, *args, **kwargs):
+        if compute_qr:
+            self.cpar = state.cpar
+            self.bpar = state.bname
+            self.n_eqn = state.shape[1]
+            LinOp = self.linop(state, self.system,
+                               dtype=np.complex if state.u.istrig else np.float, **kwargs)
+
+            self.qrchol = AugmentedFoldSolver(LinOp)
+
+        # Use the QR decomposition to solve the problem now
+        coeffs = self.qrchol.tangent_vector()
+        # coeffs = self.P * coeffs
 
         # Assemble the direction
         direction = self.to_state(coeffs)
@@ -199,13 +220,14 @@ class NewtonGaussPredictorCorrector(NewtonBase):
         # This is only called when an iteration has failed!
         # Thus this should always be less than 1
         # TODO: why is this not always the case!!!
-        return min(1.0, sqrt(THETA_BAR / self.thetak))
+        return min(1.0, sqrt(THETA_BAR / max(0.01, self.thetak)))
 
     @property
     def predict_stepsize(self):
         # If we failed we can't compute anything!
         theta0 = max(0.01, np.max(self.thetas))
-        factor = sqrt(self.norm_dx0 * THETA_BAR / (self.pred_error * theta0 * abs(self.c0)))
+        perror = self.pred_error
+        factor = sqrt(self.norm_dx0 * THETA_BAR / (perror * theta0 * abs(self.c0)))
         return factor
 
     def callback(self, itr, dx, normdx, thetak):
@@ -229,7 +251,8 @@ class NewtonGaussPredictorCorrector(NewtonBase):
         # By default if we don't have enough information continue!
         return True
 
-    def solve(self, pt, ds, miter=25, method='qnerr', predictor=True, *args, **kwargs):
+    def solve(self, pt, ds, miter=25, method='qnerr', predictor=True,
+              check_angle=True, ds_tight=0.005, *args, **kwargs):
 
         """ This function implements the core of the basic newton method
 
@@ -245,12 +268,10 @@ class NewtonGaussPredictorCorrector(NewtonBase):
         previous solution leads to linear system convergence failures in roughly 10% of cases.
         """
         success = False
+
         # save the origin point
         self.opt = deepcopy(pt)
-
         state = self.opt.state
-        n = state.n
-        m = state.m
 
         # reset
         self.reset()
@@ -259,10 +280,6 @@ class NewtonGaussPredictorCorrector(NewtonBase):
         self.thetas = np.zeros(miter+2)
         self.thetas[0] = 0.5 * THETA_MAX
         self.rank = 0
-
-        # set shape
-        self.shape = (n, m)
-        self.function_type = 'trig' if state.u.istrig else 'cheb'
 
         # Set shape -> important to how to interpret coefficient vectors!
         self.n_eqn = state.shape[1]
@@ -279,8 +296,16 @@ class NewtonGaussPredictorCorrector(NewtonBase):
         ###############################
         if predictor:
             s1 = self.solve_predictor(state, ds, pt.tangent, *args, **kwargs)
+            s1 = s1.simplify()
         else:
             s1 = deepcopy(state)
+
+        # Set shapes after simplification of initial condition!
+        n = s1.n
+        m = s1.m
+
+        self.shape = (n, m)
+        self.function_type = 'trig' if state.u.istrig else 'cheb'
 
         # copy this for the moment for step adjustment: TODO: do we need to copy?
         self.pred_pt = deepcopy(s1)
@@ -293,23 +318,40 @@ class NewtonGaussPredictorCorrector(NewtonBase):
         # Compute the prediction error
         self.pred_error = (un - self.pred_pt).norm()
 
+        # If not success return
+        if not success:
+            return None, success, its
+
         ###################################################
         # Step 3: Compute new direction for the next step #
         ###################################################
+        # Computes the dense QR-decomposition of the matrix!
         new_dir = self.solve_direction_qr(un, compute_qr=True, *args, **kwargs)
-
-        # flip around if the direction is wrong!
-        angle = sprod(new_dir, self.opt.tangent)
-        if angle < 0:
-            new_dir = new_dir.flip()
-
-        # Check: do I have to do this work?
-        angle = sprod(new_dir, self.opt.tangent)
-        if not angle >= 0.3:
-            return None, False, its
 
         # Compute monitor (d_chi, d_lambda)
         nmon = self.get_monitor()
+
+        # If we are near an interesting point i.e. turning point or bifurcation
+        # point make sure that step size is below some tight upper bound.
+        # This is required to fix potential branch jumps near turning points.
+        if np.any(nmon() * self.opt.sign() < 0) and ds > ds_tight:
+            # set thetak such that correct will reduce step-size by 1/2
+            self.thetak = 1.0
+            return None, False, its
+
+        if check_angle:
+            # flip around if the direction is wrong!
+            # This happens often since computing the null-space does
+            # not preserve the orientation.
+            angle = sprod(new_dir, self.opt.tangent)
+            if angle < 0:
+                new_dir = new_dir.flip()
+
+            # Check: do I have to do this work?
+            angle = sprod(new_dir, self.opt.tangent, weighted=False)
+            if not angle >= 0.3:
+                return None, False, its
+
         npt = Point(state=un, tangent=new_dir, monitor=nmon,
                     chi=self.qrchol.internal_embedding_parameter)
 

@@ -22,10 +22,23 @@ class DerivativeFunctional:
         self.dps = {}
 
     def build(self, src, *args, **kwargs):
-        execute_pycode(getattr(src, self.symbol_name), self.ns)
+        for p_name, vfunc in src.dp.items():
 
-        # build the look-up table
-        self.collect_symbols_from_ns(src.parameter_names, src.function_names)
+            # Generate the python code
+            pycode = vfunc.emit()
+
+            # Execute the code
+            execute_pycode(pycode, self.ns)
+
+            # Get the symbols from the namespace
+            self.dps[p_name] = []
+            for func in vfunc.functions:
+                try:
+                    symbol = self.ns[func.symbol_name]
+                    self.dps[p_name].append(symbol)
+
+                except KeyError:
+                    raise RuntimeError("Could not find symbol \"{}\"!".format(func.symbol_name))
 
     def __call__(self, u, pname=None):
         """ Computes the derivative of the nonlinear operator with respect to a
@@ -46,12 +59,3 @@ class DerivativeFunctional:
             return [dp(*u.u, *u.phi) for dp in dps]
         else:
             return [dp(*u) for dp in dps]
-
-    def collect_symbols_from_ns(self, p_names, f_names, *args, **kwargs):
-        for p_name in p_names.keys():
-            try:
-                # create a list for the various partial derivatives
-                self.dps[p_name] = [self.ns['{0:s}_{1:s}_{2:s}'\
-                                            .format(self.symbol_name, p_name, f_name)] for f_name in f_names]
-            except KeyError:
-                continue

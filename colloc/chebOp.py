@@ -16,9 +16,10 @@ from colloc.chebOpConstraintCompiled import ChebOpConstraintCompiled
 from colloc.ultraS.ultraS import ultraS
 from colloc.trigspec.trigspec import trigspec
 from colloc.realDiscretization import realDiscretization
-from colloc.source import Source
+from colloc.source.compiler import Source
 from colloc.LinSys import LinSys
 from colloc.BiLinSys import BiLinSys
+from colloc.function import Function
 from colloc.adapt import SolverAdaptive
 
 from newton.newton_standard import Newton
@@ -96,9 +97,11 @@ class ChebOp:
     def __init__(self, colloc='ultraS', *args, **kwargs):
         # local namespace
         self.debug = kwargs.pop('debug', False)
+        self.run_debug = kwargs.pop('run_debug', False)
         self.solver_debug = kwargs.pop('solver_debug', False)
 
         self.function_names = kwargs.pop('functions', [])
+        self.constant_function_names = kwargs.pop('constant_functions', {})
         self.operator_names = kwargs.pop('operators', [])
         self.kernels = kwargs.pop('kernels', [])
         self.parameter_names = kwargs.pop('parameters', {})
@@ -131,7 +134,7 @@ class ChebOp:
         self.proj = []
 
         # operator eps -> TODO make this settable
-        self.eps = kwargs.pop('eps', 1e-8)
+        self.eps = kwargs.pop('eps', 2e3 * np.finfo(float).eps)
 
         # tolerance for the linear solver
         self.lin_tol = kwargs.pop('tol', 1e-2 * self.eps)
@@ -146,6 +149,7 @@ class ChebOp:
         self.linSys   = None
         self.__biLinSys = None
         self.__mooreSys = None
+        self.__biLinSysAction = None
 
         # operator source
         self.source = None
@@ -185,9 +189,15 @@ class ChebOp:
         # TODO: should be able to do this more elegantly!
         # If it's created yet generated it!
         if self.source is None: return self.__biLinSys
-        #if self.__biLinSys is None:
-        self.compile_bilin(par=True, debug=self.debug)
+        if self.__biLinSys is None: self.compile_bilin(par=True, debug=self.debug)
         return self.__biLinSys
+
+    @property
+    def biLinSys_action(self):
+        if self.source is None: return self.__biLinSysAction
+        #if self.__biLinSysAction is None:
+        self.compile_action(par=True, debug=self.debug)
+        return self.__biLinSysAction
 
     @property
     def mooreSys(self):
@@ -210,11 +220,10 @@ class ChebOp:
     def __str__(self):
         rstr = 'ChebOp['
         first = True
-        for p_name, p_value in self.ns.items():
-            if p_name in self.parameter_names.keys():
-                if not first: rstr += '; '
-                rstr += '%s = %.4g' % (p_name, p_value)
-                first = False
+        for p_name, p_value in self.parameter_names.items():
+            if not first: rstr += '; '
+            rstr += '%s = %.4g' % (p_name, p_value)
+            first = False
         rstr += ']'
         return rstr
 
@@ -241,7 +250,7 @@ class ChebOp:
             memo[id_self] = _copy
         return _copy
 
-    def compile(self, par=False, *args, **kwargs):
+    def compile(self, par=False, fold=False, bif=False, *args, **kwargs):
         # If we have the base setup let's not call this again!
         if self.prepared and (self.par_set or par == self.par_set):
             return
@@ -255,17 +264,21 @@ class ChebOp:
 
         # Create source object and generate pycode
         self.source = Source(self.eqn, self.cts, self.function_names,
-                             self.operator_names, self.parameter_names, self.kernels,
-                             nonLocal=self.isNonLocal, proj=self.proj,
-                             ftype=kwargs.pop('ftype', 'cheb'),
+                             self.constant_function_names,
+                             self.operator_names, self.parameter_names,
+                             self.kernels, nonLocal=self.isNonLocal,
+                             proj=self.proj, ftype=kwargs.pop('ftype', 'cheb'),
                              diffOrder=self.diffOrder,
-                             constant_functions=constant_functions, domain=self.domain)
+                             constant_functions=constant_functions,
+                             domain=self.domain)
 
         # Do the sympy compile and generate the required operator python code!
-        self.source.compile(debug=self.debug, par=par, cpar=self.cpar)
+        self.source.compile(debug=self.debug, par=par, fold=fold,
+                            bif=bif, cpars=self.cpar)
 
         # Create Linear System object now
-        self.linSys = LinSys(self.source, self.diffOrder, n_disc=self.n_disc, par=par, debug=debug)
+        self.linSys = LinSys(self.source, self.diffOrder, n_disc=self.n_disc,
+                             par=par, debug=debug)
 
         # Construct the functional constraints
         self.linSys.constraints = [ChebOpConstraint(op=bc, domain=self.domain) for bc in self.bcs]
@@ -284,6 +297,13 @@ class ChebOp:
 
         # set prepared
         self.prepared = True
+
+    def compile_action(self, debug=False, par=False, *args, **kwargs):
+        # Create Linear System object now
+        self.__biLinSysAction = Function(self.source, n_disc=self.n_disc, debug=debug)
+
+        # Set parameters
+        self.__biLinSysAction.setParameters(self.parameter_names)
 
     def compile_bilin(self, debug=False, par=False, *args, **kwargs):
         # Create Linear System object now
@@ -309,8 +329,7 @@ class ChebOp:
         # Set parameters
         self.__mooreSys.setParameters(self.parameter_names)
 
-    def solve(self, f=None, p=2, verbose=False, state=False,
-              adaptive=False, *args, **kwargs):
+    def solve(self, f=None, p=2, verbose=True, state=False, adaptive=True, *args, **kwargs):
         """
         This function solves Op[u] = f using Newton's method.
 
@@ -337,8 +356,9 @@ class ChebOp:
 
         if adaptive:
             anw = SolverAdaptive(newton, ltol=self.lin_tol, n_min=self.n_min, ntol=self.eps)
-            s_state, success, iterations = anw.solve(i_state, verbose=verbose, lambda_min=lambda_min)
-            self.n_min = np.log2(s_state.shape[0]-1).astype(int)
+            s_state, success, iterations = anw.solve(i_state, eps=1e2*self.eps,
+                                                     verbose=verbose,
+                                                     lambda_min=lambda_min)
         else:
             precond = False if self.ftype == 'trig' else True
             s_state, success, iterations = newton.solve(i_state, lambda_min=lambda_min, precond=precond)
@@ -351,6 +371,14 @@ class ChebOp:
             soln = s_state.u
         except AttributeError:
             soln = s_state
+
+        # If solver failed return None
+        if soln is None:
+            return None, False, np.inf
+
+        # simplify solution
+        happy, _ = soln.happy()
+        soln = soln.simplify(eps=np.finfo(float).eps)
 
         # Compute the residual
         res = self.residual(soln)
@@ -380,15 +408,9 @@ class ChebOp:
                    simplify=False, type=self.ftype)
 
     def residual(self, u, p=2):
-        #print('u = ', u)
         self.linSys.update_partial(u)
-        # print('res ftype = ', self.ftype)
-        # print('coeffs = ',self.linSys.rhs.values)
-        # print('type = ', self.ftype, ' domain = ', u.domain)
         res = Fun(coeffs=self.linSys.rhs.values, domain=u.domain, type=self.ftype)
-        #print('res=', res)
-        residual = res.norm(p=p)
-        # print('residual = ', residual)
+        residual = res.norm(p=p, weighted=True)
 
         if self.linSys.numConstraints > 0:
             residual += np.linalg.norm(self.linSys.cts_res, ord=p)
@@ -408,13 +430,14 @@ class ChebOp:
         operator.setDisc(self.n_disc)
 
         # Generate the quasimatrix of the linearised operator at u0
-        operator.quasi(u0)
-        if self.debug: print(operator.pars)
+        operator.quasi(u0, eps=u0.eps)
+        if self.run_debug: print(operator.pars)
 
         if self.n_disc == 1:
-            # Not enough points to resolve space -> assume homogeneous solutions
+            if self.run_debug: print('Real discretization!')
             return realDiscretization(operator, domain=self.domain, par=par)
         else:
+            if self.run_debug: print('Collocation discretization!')
             return self.colloc_type(operator, domain=self.domain, par=par, dimension=self.n_disc)
 
     def discretize(self, u0, sys_name='linear', *args, **kwargs):
@@ -460,6 +483,8 @@ class ChebOp:
         dgrp['solver_debug'] = self.solver_debug
         dgrp['n_disc'] = self.n_disc
         dgrp['n_min'] = self.n_min
+        dgrp['domain_beg'] = self.domain[0]
+        dgrp['domain_end'] = self.domain[1]
         dgrp['eps'] = self.eps
         dgrp['lin_tol'] = self.lin_tol
         dgrp['diffOrder'] = self.diffOrder
@@ -477,9 +502,8 @@ class ChebOp:
         for kernel in fh['kernels']:
             self.kernels.append(kernel.decode('utf-8'))
 
-        # TODO FIXME
         for pname, pvalue in fh['parameters'].attrs.items():
-            self.parameters[pname.decode('utf-8')] = pvalue
+            self.parameter_names[pname] = pvalue
 
         self.colloc = fh['colloc'][()]
 
@@ -498,3 +522,8 @@ class ChebOp:
         self.lin_tol = dgrp['lin_tol'][()]
         self.diffOrder = dgrp['diffOrder'][()]
         self.linear = dgrp['linear'][()]
+        try:
+            self.domain[0] = dgrp['domain_beg'][()]
+            self.domain[1] = dgrp['domain_end'][()]
+        except:
+            pass

@@ -21,11 +21,18 @@ class LinOp:
 
         for i, j in np.ndindex(src.shape):
             if debug: print('Creating block [%d, %d].' % (i, j))
-            execute_pycode(src[i, j], self.ns, debug=debug)
-            self.blocks[i, j] = LinBlock(self.ns, '{0:d}{1:d}'.format(i, j),
-                                         diff_order=self.diffOrder, debug=debug)
+
+            # Compile the required python code.
+            pycode = src[i, j].emit()
+
+            # Execute the compiled code in the local namespace
+            execute_pycode(pycode, self.ns, debug=debug)
+
+            # Finally create linear block representation
+            self.blocks[i, j] = LinBlock(self.ns, '{0:d}{1:d}'.format(i, j), debug=debug)
+
             # Build the block -> TODO exception handling!
-            self.blocks[i, j].build(symbol_name, symbol_name_nonlocal)
+            self.blocks[i, j].build(src[i, j])
 
     @property
     def shape(self):
@@ -34,10 +41,10 @@ class LinOp:
     def __getitem__(self, key):
         return self.blocks[key]
 
-    def quasi(self, u):
+    def quasi(self, u, *args, **kwargs):
         quasi = QuasiOp(self.shape)
 
         for i, j in np.ndindex(self.shape):
-            quasi[i, j] = self.blocks[i, j].quasi(u)
+            quasi[i, j] = self.blocks[i, j].quasi(u, *args, **kwargs)
 
         return quasi

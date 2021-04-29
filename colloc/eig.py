@@ -9,6 +9,8 @@ import scipy.sparse.linalg as LAS
 from pylops import LinearOperator
 
 from colloc.chebOp import ChebOp
+from fun import zeros
+
 
 class GeneralizedEigenvalueOp(LinearOperator):
     r"""
@@ -46,10 +48,15 @@ class GeneralizedEigenvalueOp(LinearOperator):
         assert False, 'Not implemented!'
 
 
-def eigs(op, f=None, tol=1e-12, n_max=2048, *args, **kwargs):
+def eigs(op, f=None, tol=1e-12, n_max=2048, ignore_exception=True,
+         sort='lhp', *args, **kwargs):
     # see if operator has tol set
     tol = op.eps
-    op.setDisc(f.shape[0])
+    if f is not None:
+        op.setDisc(f.shape[0])
+    else:
+        # If f is None we will assume that the operator is linear!
+        f = zeros(op.neqn, domain=op.domain)
 
     # Use a QZ decomposition to compute the generalized eigenvalues
     while True:
@@ -60,13 +67,23 @@ def eigs(op, f=None, tol=1e-12, n_max=2048, *args, **kwargs):
             M, P, S = colloc.matrix()
             B = GeneralizedEigenvalueOp(colloc)
 
-            AA, BB, alpha, beta, Q, Z = LA.ordqz(M.todense(), B.todense(),
-                                                 sort='lhp', overwrite_a=True, overwrite_b=True)
-        except ValueError:
+            Md = M.todense()
+            Bd = B.todense()
+
+            AA, BB, alpha, beta, Q, Z = LA.ordqz(Md, Bd, sort=sort,
+                                                 overwrite_a=True, overwrite_b=True)
+
+        except ValueError as e:
+            if ignore_exception:
+                print(e)
+                op.n_disc = 2 * op.n_disc
+            else:
+                raise e
+
             if op.n_disc >= n_max:
-                print('Ran out of discretization space!')
+                raise RuntimeError('Error requested discretization is larger than allowed!')
                 break
-            op.n_disc = 2 * op.n_disc
+
         else:
             break
 

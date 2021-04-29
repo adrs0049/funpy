@@ -19,9 +19,6 @@ class BiLinBlock:
         # store block
         self.block = block
 
-        # rounding for coefficient terms
-        self.eps = kwargs.pop('eps', 1.48e-8)
-
         # TODO: why need to keep this around! ?
         self.diff_order = kwargs.pop('diff_order', 0)
 
@@ -101,10 +98,12 @@ class BiLinBlock:
                 if self.debug: print('LinBlock {0:s} integral: '.format(self.block), symbol)
                 self.integral = self.ns[symbol]
 
-    def quasi(self, u, phi):
+    def quasi(self, u, phi, *args, **kwargs):
+        eps = kwargs.get('eps', 1.48e-8)
+
         new_coeffs = np.empty(len(self.coeffs), dtype=object)
         for i, coeff in enumerate(self.coeffs):
-            new_coeffs[i] = coeff(*u, *phi).simplify(eps=self.eps)
+            new_coeffs[i] = coeff(*u, *phi).simplify(eps=eps)
 
         # No non-local support yet
         new_nl_coeffs = np.empty(1, dtype=object)
@@ -112,7 +111,7 @@ class BiLinBlock:
         # update the integral term
         new_integral = None
         if self.has_nonlocal:
-            new_integral = self.integral(*u, *phi).simplify(eps=self.eps)
+            new_integral = self.integral(*u, *phi).simplify(eps=eps)
 
         return QuasiOpBlock(self.block, info=np.asarray(self.info()),
                             coeffs=new_coeffs, nl_coeffs=new_nl_coeffs,

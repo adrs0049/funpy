@@ -21,27 +21,25 @@ from cheb.diff import computeDerCoeffs
 import cheb.qr
 from cheb.minmax import minmaxCol
 
-EPS = np.finfo(float).eps
+HANDLED_FUNCTIONS = {}
 
 
 class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
     """ This needs some information still! Currently only type-2 polynomials """
-    def __init__(self, op=None, values=None, eps=EPS, coeffs=None, *args, **kwargs):
+    def __init__(self, op=None, *args, **kwargs):
         """ Improve this so that we can just pass in one object and we figure out what it is """
-        self.coeffs = coeffs
+        self.coeffs = kwargs.pop('coeffs', np.zeros((0, 0), order='F'))
 
         # tolerance
-        self.eps = eps
+        self.eps = kwargs.pop('eps', np.finfo(float).eps)
 
         # add varying interval support!
         self.hscale = kwargs.pop('hscale', 1)
         self.maxLength = kwargs.pop('maxLength', 2**14)
         self.ishappy = kwargs.pop('ishappy', False)
 
-        if values is None and self.coeffs is None and op is None:
+        if op is not None:
             self.coeffs = np.zeros((0, 0), order='F')
-        elif op is not None:
-            self.coeffs = np.zeros((0,0), order='F')
 
             # Treat numpy arrays differently from things we can call!
             if isinstance(op, np.ndarray):
@@ -51,7 +49,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
             else:
                 # Create callable container
                 if isinstance(op, list):
-                    op = FunctionContainer(op)
+                    op = FunctionContainer(op) if len(op) > 1 else op[0]
                 # check what kind of op we have
                 if isinstance(op, RefineBase):
                     self.populate(op)
@@ -59,12 +57,10 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
                     refine = Refine(op=op, minSamples=min(self.maxLength, kwargs.pop('minSamples', 17)),
                                     strategy=kwargs.pop('resample', 'nested'))
                     self.populate(refine)
-        elif self.coeffs is None:
-            self.coeffs = polyfit(values)
 
         # Update the happiness status
         if not self.ishappy:
-            self.ishappy = self.happy()
+            self.ishappy, _ = self.happy()
 
         # call simplify - this will also check whether I am happy
         simplify = kwargs.pop('simplify', True)
@@ -73,7 +69,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
 
     @classmethod
     def from_hdf5(cls, hdf5_file):
-        coeffs = np.asfortranarray(hdf5_file[:])
+        coeffs = np.asfortranarray(hdf5_file[:])  # TODO FIXME
         eps = hdf5_file.attrs["eps"]
         hscale = hdf5_file.attrs["hscale"]
         maxLength = hdf5_file.attrs["maxLength"]
@@ -109,7 +105,10 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
         return self.coeffs.shape[0]
 
     def __array__(self):
-        return self.coeffs.flatten(order='F')
+        if self.m == 1:
+            return np.expand_dims(self.coeffs.flatten(order='F'), axis=1)
+        else:
+            return self.coeffs.flatten(order='F')
 
     def __array_ufunc__(self, numpy_ufunc, method, *inputs, **kwargs):
         import cheb.ufuncs as cp_funcs
@@ -132,13 +131,23 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
 
             # If we don't have a special implementation we default to evaluating by value!
             if len(inputs) == 1:
-                return chebtec(op=lambda x: numpy_ufunc(inputs[0](x)))
+                return chebtec(op=lambda x: numpy_ufunc(inputs[0](x)),
+                               eps=self.eps, maxLength=self.maxLength)
             elif len(inputs) == 2:
-                return chebtec(op=lambda x: numpy_ufunc(inputs[0](x), inputs[1](x)))
+                return chebtec(op=lambda x: numpy_ufunc(inputs[0](x), inputs[1](x)),
+                               eps=self.eps, maxLength=self.maxLength)
             else:
                 return NotImplemented
         else:
             return NotImplemented
+
+    """ Implement array ufunc support """
+    def __array_function__(self, func, types, args, kwargs):
+        if func not in HANDLED_FUNCTIONS:
+            return NotImplemented
+        if not all(issubclass(t, self.__class__) for t in types):
+            return NotImplemented
+        return HANDLED_FUNCTIONS[func](*args, **kwargs)
 
     def isfortran(self):
         return self.coeffs.flags.f_contiguous
@@ -152,6 +161,17 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
             return np.abs(self.coeffs[0, :])
         else:
             return np.max(np.abs(polyval(self.coeffs)), axis=0)
+
+    def vscl(self):
+        """ Estimate the vertical scale of a function. """
+        c = self.coeffs
+        if c.size == 0:
+            return 0
+        elif c.shape[0] == 1:
+            return np.abs(c).squeeze()
+        else:
+            vals = polyval(c)
+            return np.max(np.max(np.abs(vals), axis=0))
 
     @property
     def ValsDisc(self):
@@ -199,7 +219,9 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
         #assert idx >= 0 and idx < self.m, 'Index %d out of range [0, %d].' % (idx, self.m-1)
         if idx < 0 or idx >= self.m:
             raise IndexError
-        return chebtec(coeffs=self.coeffs[:, None, idx], simplify=False, ishappy=self.ishappy)
+        return chebtec(coeffs=self.coeffs[:, None, idx], eps=self.eps,
+                       maxLength=self.maxLength, simplify=False,
+                       ishappy=self.ishappy)
 
     """ This is the number of chebyshev polynomials stored in this class """
     @property
@@ -217,10 +239,12 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
     def values(self):
         return polyval(self.coeffs)
 
-    def happy(self):
-        tol = np.maximum(self.hscale, self.vscale) * self.eps * np.ones(self.m)
-        ishappy, cutoff = happiness_check(self.coeffs, tol)
-        return bool(ishappy), cutoff
+    def happy(self, eps=None):
+        eps = self.eps if eps is None else eps
+        tol = np.maximum(self.hscale, self.vscale) * eps * np.ones(self.m)
+        self.ishappy, cutoff = happiness_check(self.coeffs, tol)
+        # cutoff is the last entry to keep -> increment by one.
+        return bool(self.ishappy), cutoff+1
 
     def chebpts(self, n=None):
         if n is None: n = self.n
@@ -287,8 +311,9 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
 
         # generate new coefficients
         coeffs = polyfit(values)
-        return chebtec(values=values, coeffs=coeffs)
-
+        return chebtec(coeffs=coeffs, eps=self.eps, simplify=False,
+                       maxLength=self.maxLength, ishappy=self.ishappy,
+                       hscale=self.hscale)
 
     def prolong(self, Nout):
         # If Nout < length(self) -> compressed by chopping
@@ -338,57 +363,162 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
         """ Flip / reverse a chebtec object such that G(x) = F(-x) for all x in [-1, 1] """
         coeffs = np.copy(self.coeffs)
         coeffs[1::2] *= -1
-        return chebtec(coeffs=coeffs)
+        return chebtec(coeffs=coeffs, eps=self.eps, hscale=self.hscale,
+                       simplify=False, ishappy=self.ishappy,
+                       maxLength=self.maxLength)
 
     def fliplr(self):
         """ Flip columns of an array-valued chebtec object. """
-        return chebtec(coeffs=np.fliplr(self.coeffs))
+        return chebtec(coeffs=np.fliplr(self.coeffs), eps=self.eps,
+                       hscale=self.hscale, simplify=False,
+                       ishappy=self.ishappy, maxLength=self.maxLength)
 
-    def diff(self, k=1, axis=0):
-        """ Compute the k-th derivative of the chebtec f """
-        n = self.coeffs.shape[0]
+    def __eq__(self, other):
+        return np.all(self.shape == other.shape) and np.all(self.coeffs == other.coeffs)
 
-        # return zero if differentiating too much
-        if k >= n:
-            return chebtec(coeffs=np.zeros_like(self.coeffs))
+    def compose(self, op, g=None):
+        """ Returns a lambda generating the composition of the two functions """
+        if g is None:
+            """ Compute op(f) """
+            return lambda x: op(self(x))
+        else:
+            """ Compute op(f, g) """
+            return lambda x: op(self(x), g(x))
 
-        # Iteratively compute the coefficients of the derivatives
-        c = computeDerCoeffs(self.coeffs)
-        for _ in range(1, k):
-            c = computeDerCoeffs(c)
+    def roots(self, *args, **kwargs):
+        # If we don't simplify this may lead to crashes!
+        self.simplify()
+        return roots(self, eps=self.eps)
 
-        # This returns a chebtec that has only N - k Chebyshev coefficients -> note that setting
-        # happy will cause the function to be simplified!
-        return chebtec(coeffs=c, ishappy=self.ishappy, simplify=False)
+    def minandmax(self, *args, **kwargs):
+        fp = np.diff(self)
+        x = self.x
 
-    """ Definite Integral """
-    def sum(self, axis=None, **unused_kwargs):
-        """ Definite integral of a chebtec f on the interval [-1, 1].
+        if self.m == 1:
+            vals, pos = minmaxCol(self, fp, x)
+        else:
+            vals = np.zeros((2, self.m))
+            pos = np.zeros((2, self.m))
+            for i in range(self.m):
+                vals[:, i, None], pos[:, i, None] = minmaxCol(self[i], fp[i], x)
 
-        If f is an array-valued chebtec, then the result is a row vector
-        containing the definite integrals of each column.
+        return vals, pos
 
-        """
-        n = self.n
+    def qr(self, *args, **kwargs):
+        Q, R = funpy.cheb.qr.qr(self, *args, **kwargs)
+        Q = chebtec(coeffs=Q, simplify=False, eps=self.eps, hscale=self.hscale,
+                    maxLength=self.maxLength, ishappy=self.ishappy)
+        return Q, R
 
-        # Constant chebtec
-        if n == 1:
-            return 2 * self.coeffs
+    """ I/O support """
+    def writeHDF5(self, fh):
+        # Write the coefficients
+        fd = fh.create_dataset('poly', data=self.coeffs)
+        fd.attrs["eps"] = self.eps
+        fd.attrs["hscale"] = self.hscale
+        fd.attrs["maxLength"] = self.maxLength
+        fd.attrs["ishappy"] = self.ishappy
 
-        # Evaluate the integral by using the Chebyshev coefficients
-        #
-        # Int_{-1}^{1} T_k(x) dx = 2 / (1 - k^2)   if k even
-        # Int_{-1}^{1} T_k(x) dx = 0               if k odd
-        #
-        # Thm 19.2 in Trefethen
-        mask = np.ones_like(self.coeffs)
-        mask[1::2, :] = 0
-        out = np.expand_dims(np.hstack((2, 0, 2 / (1 - np.arange(2, n)**2))), axis=0) @ (self.coeffs * mask)
-        return out.squeeze()
 
-    """ Indefinite Integral """
-    def cumsum(self, m=1, **unused_kwargs):
-        """ Indefinite integral of chebtec f, with the constant of integration
+def compose(f, op, g=None):
+    if g is None:
+        resampler = RefineCompose1(f, op)
+        return chebtec(op=resampler)
+    else:
+        resampler = RefineCompose2(f, op, g)
+        return chebtec(op=resampler)
+
+
+def implements(np_function):
+    """ Register an __array_function__ implementation """
+    def decorator(func):
+        HANDLED_FUNCTIONS[np_function] = func
+        return func
+    return decorator
+
+
+@implements(np.real)
+def real(cheb):
+    """ Returns real part of a trigtech """
+    return chebtec(coeffs=np.real(cheb.coeffs), simplify=False,
+                   ishappy=cheb.ishappy, eps=cheb.eps,
+                   hscale=cheb.hscale, maxLength=cheb.maxLength)
+
+
+@implements(np.imag)
+def imag(cheb):
+    """ Returns real part of a trigtech """
+    return chebtec(coeffs=np.imag(cheb.coeffs), simplify=False,
+                   ishappy=cheb.ishappy, eps=cheb.eps,
+                   hscale=cheb.hscale, maxLength=cheb.maxLength)
+
+
+@implements(np.conj)
+def conj(cheb):
+    return chebtec(coeffs=np.conj(cheb.coeffs), simplify=False, eps=cheb.eps,
+                   ishappy=cheb.ishappy, maxLength=cheb.maxLength,
+                   hscale=cheb.hscale)
+
+
+@implements(np.diff)
+def diff(cheb, n=1, axis=0):
+    """ Compute the k-th derivative of the chebtec f """
+    assert axis == 0, 'Axis other than zero not implemented yet!'
+
+    # Simplify the coefficients prior to differentiating
+    # Otherwise it seems errors may be accumulating.
+    c = simplify_coeffs(cheb.coeffs, eps=cheb.eps)
+
+    # Get the size of the current shape
+    k = c.shape[0]
+
+    # return zero if differentiating too much
+    if n >= k:
+        return chebtec(coeffs=np.zeros_like(cheb.coeffs), eps=cheb.eps,
+                       hscale=cheb.hscale, simplify=False,
+                       ishappy=cheb.ishappy, maxLength=cheb.maxLength)
+
+    # Iteratively compute the coefficients of the derivatives
+    c = computeDerCoeffs(c)
+    for _ in range(1, n):
+        c = computeDerCoeffs(c)
+
+    # This returns a chebtec that has only N - k Chebyshev coefficients
+    # -> note that setting happy will cause the function to be simplified!
+    return chebtec(coeffs=c, ishappy=cheb.ishappy, simplify=False,
+                   eps=cheb.eps, hscale=cheb.hscale,
+                   maxLength=cheb.maxLength)
+
+
+@implements(np.sum)
+def sum(cheb, axis=0, **kwargs):
+    """ Definite integral of a chebtec f on the interval [-1, 1].
+
+    If f is an array-valued chebtec, then the result is a row vector
+    containing the definite integrals of each column.
+
+    """
+    n = cheb.n
+
+    # Constant cheb function
+    if n == 1:
+        return 2 * cheb.coeffs
+
+    # Evaluate the integral by using the Chebyshev coefficients
+    #
+    # Int_{-1}^{1} T_k(x) dx = 2 / (1 - k^2)   if k even
+    # Int_{-1}^{1} T_k(x) dx = 0               if k odd
+    #
+    # Thm 19.2 in Trefethen
+    mask = np.ones_like(cheb.coeffs)
+    mask[1::2, :] = 0
+    out = np.expand_dims(np.hstack((2, 0, 2 / (1 - np.arange(2, n)**2))), axis=0) @ (cheb.coeffs * mask)
+    return out.squeeze()
+
+
+@implements(np.cumsum)
+def cumsum(cheb, **kwargs):
+    """ Indefinite integral of chebtec f, with the constant of integration
         chosen such that f(-1) = 0.
 
         Given a Chebyshev polynomial of length n, we have that
@@ -406,124 +536,82 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
             b_r = (c_{r-1} - c_{r+1})/(2r) for r >
 
         with c_{n+1} = c_{n+2} = 0
-        """
-        n, m = self.shape
-        c = np.vstack((self.coeffs, np.zeros((2, m))))  # pad with zeros
-        b = np.zeros((n+1, m))
 
-        # compute b_(2) ... b_(n+1)
-        b[2:n+1, :] = (c[1:n, :] - c[3:n+2, :]) / np.tile(np.expand_dims(2*np.arange(2, n+1), axis=1), (1, m))
-        # compute b(1)
-        b[1, :] = c[0, :] - c[2, :] / 2
-        v = np.ones((1, n))
-        v[:, 1::2] = -1
-        b[0, :] = np.matmul(v, b[1:, :])
+        TODO: FIXME!!!
+    """
+    n, m = cheb.shape
+    c = np.vstack((cheb.coeffs, np.zeros((2, m))))  # pad with zeros
+    b = np.zeros((n+1, m))
 
-        # Create the new chebtec
-        g = chebtec(coeffs=b)
+    # compute b_(2) ... b_(n+1)
+    b[2:n+1, :] = (c[1:n, :] - c[3:n+2, :]) / np.tile(np.expand_dims(2*np.arange(2, n+1), axis=1), (1, m))
+    # compute b(1)
+    b[1, :] = c[0, :] - c[2, :] / 2
+    v = np.ones((1, n))
+    v[:, 1::2] = -1
+    b[0, :] = np.matmul(v, b[1:, :])
 
-        # simplify
-        g = g.simplify()
+    # Create the new chebtec
+    g = chebtec(coeffs=b, eps=cheb.eps, simplify=False,
+                hscale=cheb.hscale, ishappy=cheb.ishappy,
+                maxLength=cheb.maxLength)
 
-        # ensure that f(-1) = 0
-        lval = g.lval()
-        g.coeffs[0, :] = g.coeffs[0, :] - lval
-        return g
+    # simplify
+    g = g.simplify()
 
-    """ Get the conjugate """
-    def conj(self):
-        nc = np.conj(self.coeffs)
-        return chebtec(coeffs=nc, simplify=False)
-
-    def __eq__(self, other):
-        return np.all(self.shape == other.shape) and np.all(self.coeffs == other.coeffs)
-
-    def vscl(self):
-        """ Estimate the vertical scale of a function. """
-        c = self.coeffs
-        if c.size == 0:
-            return 0
-        elif c.shape[0] == 1:
-            return np.abs(c).squeeze()
-        else:
-            vals = polyval(c)
-            return np.max(np.max(np.abs(vals), axis=0))
-
-    """ This cannot be a member function """
-    def innerproduct(self, other):
-        """ Computes the L2 inner product on [-1, 1] of two Chebyshev series """
-        n = len(self) + len(other)
-
-        fvalues = polyval(prolong(self.coeffs, n))
-        gvalues = polyval(prolong(other.coeffs, n))
-
-        # compute Clenshaw-Curtis quadrature weights
-        w = quadwts(n)
-
-        # compute the inner-product
-        out = np.matmul(fvalues.T * w, gvalues)
-
-        # force non-negative output if the inputs are equal
-        # if isequal(f, g):
-        # dout = diag(diag(out))
-        # out = out - dout + abs(dout)
-
-        return out.squeeze()
-
-    def compose(self, op, g=None):
-        """ Returns a lambda generating the composition of the two functions """
-        if g is None:
-            """ Compute op(f) """
-            return lambda x: op(self(x))
-        else:
-            """ Compute op(f, g) """
-            return lambda x: op(self(x), g(x))
-
-    def roots(self, *args, **kwargs):
-        # If we don't simplify this may lead to crashes!
-        self.simplify()
-        return roots(self)
-
-    def minandmax(self, *args, **kwargs):
-        fp = self.diff()
-        x = self.x
-
-        if self.m == 1:
-            vals, pos = minmaxCol(self, fp, x)
-        else:
-            vals = np.zeros((2, self.m))
-            pos = np.zeros((2, self.m))
-            for i in range(self.m):
-                vals[:, i, None], pos[:, i, None] = minmaxCol(self[i], fp[i], x)
-
-        return vals, pos
-
-    def qr(self, *args, **kwargs):
-        Q, R = cheb.qr.qr(self, *args, **kwargs)
-        Q = chebtec(coeffs=Q, simplify=False)
-        return Q, R
-
-    """ I/O support """
-    def writeHDF5(self, fh):
-        # Write the coefficients
-        fd = fh.create_dataset('poly', data=self.coeffs)
-        fd.attrs["eps"] = self.eps
-        fd.attrs["hscale"] = self.hscale
-        fd.attrs["maxLength"] = self.maxLength
-        fd.attrs["ishappy"] = self.ishappy
-
-    def readHDF5(self, fh):
-        self.coeffs = np.asfortranarray(fh[:]) # TODO FIXME
-        self.eps = fh.attrs["eps"]
-        self.hscale = fh.attrs["hscale"]
-        self.maxLength = fh.attrs["maxLength"]
-        self.ishappy = fh.attrs["ishappy"]
+    # ensure that f(-1) = 0
+    lval = g.lval()
+    g.coeffs[0, :] = g.coeffs[0, :] - lval
+    return g
 
 
-def compose(f, op, g=None):
-    if g is None:
-        resampler = RefineCompose1(f, op)
-        return chebtec(op=resampler)
-    else:
-        resampler = RefineCompose2(f, op, g)
-        return chebtec(op=resampler)
+@implements(np.inner)
+def inner(cheb1, cheb2, weighted=False):
+    """ Computes the L2 inner product on [-1, 1] of two Chebyshev series """
+    n = len(cheb1) + len(cheb2)
+
+    fvalues = polyval(prolong(cheb1.coeffs, n))
+    gvalues = polyval(prolong(cheb2.coeffs, n))
+
+    # compute Clenshaw-Curtis quadrature weights
+    w = quadwts(n)
+
+    # compute the inner-product
+    out = np.matmul(fvalues.T * w, gvalues)
+
+    # force non-negative output if the inputs are equal
+    # if isequal(f, g):
+    # dout = diag(diag(out))
+    # out = out - dout + abs(dout)
+
+    return out.squeeze()
+
+
+def innerw(cheb1, cheb2):
+    """
+    Computes the weighted L2 inner product with the weight
+
+        w(x) = 1 / sqrt(1 - x^2).
+
+    This ensures that the Chebyshev functions of zeroth kind form
+    an orthonormal basis, which simplifies the computation of the
+    inner product.
+
+                 /  0,     if n ِ≠ m      \
+    (T_k, T_m) = |  π,     if n = m = 0  |
+                 \  π / 2, if n = m ≠ 0  /
+
+    """
+    n = min(len(cheb1), len(cheb2))
+    c1 = np.asarray(prolong(cheb1.coeffs, n))
+    c2 = np.asarray(prolong(cheb2.coeffs, n))
+
+    out = c1[0, :] * c2[0, :]
+    out += np.sum(np.multiply(c1, c2), axis=0)
+    out *= 0.5 * np.pi
+    return out.squeeze()
+
+
+@implements(np.dot)
+def dot(cheb1, cheb2):
+    return innerw(cheb1, cheb2)

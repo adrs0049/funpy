@@ -38,7 +38,7 @@ class BiLinOp:
     def __getitem__(self, key):
         return self.blocks[key]
 
-    def quasi(self, u, phi):
+    def quasi(self, u, phi, *args, **kwargs):
         """
         Generates a linear quasi operator from the bilinear form, by assuming
         that one of the inputs (φ) to the bilinear form is fixed.
@@ -46,6 +46,6 @@ class BiLinOp:
         quasi = QuasiOp(self.shape)
 
         for i, j in np.ndindex(self.shape):
-            quasi[i, j] = self.blocks[i, j].quasi(u, phi)
+            quasi[i, j] = self.blocks[i, j].quasi(u, phi, *args, **kwargs)
 
         return quasi

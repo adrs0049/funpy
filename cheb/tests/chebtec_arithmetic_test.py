@@ -6,7 +6,7 @@ from numpy.testing import assert_, assert_raises, assert_almost_equal
 from cheb.chebpy import chebtec
 
 class TestChebTec:
-    def test_addition(self):
+    def test_addition_constant(self):
         fun1 = chebtec(op=lambda x: np.ones_like(x), type='cheb')
         fun2 = chebtec(op=lambda x: np.ones_like(x), type='cheb')
         fun3 = fun1 + fun2

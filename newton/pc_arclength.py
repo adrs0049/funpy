@@ -21,14 +21,8 @@ from nlep.nullspace import right_null_vector
 from newton.deflated_residual import DeflatedResidual
 from support.tools import orientation_y, logdet, functional, Determinant
 
-# NUMBERS FOR NLEQ_ERR
-SMALL = 1.0e-150
-EPMACH = 1.0e-17
-THETA_MIN = 1e-5
 THETA_MAX = 0.5
 THETA_BAR = 0.25  # Theoretically this is 0.25; but practice shows this needs to be tighter
-THETA_BAR_PRED = 0.25  # Theoretically this is 0.25; but practice shows this needs to be tighter
-KAPPA_MAX = 1e5
 
 
 class NewtonPredictorCorrector(NewtonBase):
@@ -60,13 +54,6 @@ class NewtonPredictorCorrector(NewtonBase):
         state = ContinuationState(a=np.real(coeffs[-1]), u=np.real(soln),
                                   cpar=self.cpar, n=max(1, soln.shape[0]), theta=self.theta)
         return state
-
-    def to_fun(self, coeffs, ishappy=True):
-        """ Constructs a new state from coefficients """
-        m = coeffs.size // self.n_eqn
-        soln = Fun(coeffs=coeffs.reshape((m, self.n_eqn), order='F'), simplify=False,
-                   domain=self.system.domain, ishappy=ishappy, type=self.function_type)
-        return soln
 
     def solve_predictor(self, state, ds, direction, *args, **kwargs):
         """ Computes the predictor. Here we use a simple Euler step """

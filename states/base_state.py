@@ -4,14 +4,15 @@
 import numpy as np
 import h5py as h5
 import warnings
-from enum import Enum
+from enum import IntEnum
 from copy import deepcopy
 from numbers import Number
-from ac.support import Namespace
 
-from fun import Fun, h1norm, norm, norm2, sturm_norm, sturm_norm_alt
+from fun import Fun, h1norm, norm2, sturm_norm, sturm_norm_alt
 from fun import minandmax
 
+import fun as fp
+from states.namespace import Namespace
 from support.tools import orientation_y
 from states.parameter import Parameter
 from cheb.chebpts import quadwts
@@ -19,6 +20,7 @@ from support.cached_property import lazy_property
 
 
 HANDLED_FUNCTIONS = {}
+
 
 class BaseState(np.lib.mixins.NDArrayOperatorsMixin):
     """
@@ -33,7 +35,7 @@ class BaseState(np.lib.mixins.NDArrayOperatorsMixin):
     defined in the namespace.
 
     """
-    class SpaceType(Enum):
+    class SpaceType(IntEnum):
         REAL = 1
         CHEB = 2
         TRIG = 3
@@ -47,8 +49,6 @@ class BaseState(np.lib.mixins.NDArrayOperatorsMixin):
                 return cls.UNKW
 
     def __init__(self, signature=[], *args, **kwargs):
-        file = kwargs.pop('file', None)
-
         # Space signature
         self.signature = signature
 
@@ -58,11 +58,6 @@ class BaseState(np.lib.mixins.NDArrayOperatorsMixin):
         # Create functions
         self.funcs = kwargs.pop('funcs', np.empty(self.number_func, dtype=object))
         self.reals = kwargs.pop('reals', np.empty(self.number_real, dtype=object))
-
-        # Create state from hdf5-file
-        if file is not None:
-            self.readHDF5(file)
-            return
 
         # Now only the functions and constants should remain in the kwargs
         self.ns = kwargs.pop('ns', None)
@@ -99,6 +94,10 @@ class BaseState(np.lib.mixins.NDArrayOperatorsMixin):
                 self.signature.count(BaseState.SpaceType.TRIG)
 
     @lazy_property
+    def columns(self):
+        return np.sum([func.m for func in self.funcs])
+
+    @lazy_property
     def rank(self):
         return np.product(self.funcs[0].shape)
 
@@ -109,6 +108,10 @@ class BaseState(np.lib.mixins.NDArrayOperatorsMixin):
     @property
     def is_constant(self):
         return self.u.n == 1
+
+    @property
+    def istrig(self):
+        return self.funcs[0].istrig
 
     @property
     def fshape(self):
@@ -136,19 +139,19 @@ class BaseState(np.lib.mixins.NDArrayOperatorsMixin):
         self *= -1.0
         return self
 
-    def norm(self, p=2, norm_function=norm2):
+    def norm(self, p=2, norm_function=norm2, **kwargs):
         norm = 0.0
         for i, function in enumerate(self.funcs):
-            norm += self.weights[i] * norm_function(function, p=p)
+            norm += self.weights[i] * norm_function(function, p=p, **kwargs)
 
         for i, real in enumerate(self.reals, start=len(self.funcs)):
             norm += self.weights[i] * float(real**p)
 
         return np.power(norm, 1. / p)
 
-    def normalize(self, p=2):
-        this_norm = self.norm(p=p)
-        if this_norm > 1e-8:
+    def normalize(self, p=2, **kwargs):
+        this_norm = self.norm(p=p, **kwargs)
+        if this_norm > 1e-14:
             for function in self.funcs:
                 function /= this_norm
             for real in self.reals:
@@ -163,20 +166,24 @@ class BaseState(np.lib.mixins.NDArrayOperatorsMixin):
             return np.real(np.sum(np.diff(vals, axis=0)))
         return 0.0
 
-    def prolong(self, n):
-        for function in self.funcs:
-            function = function.prolong(n)
+    def happy(self):
+        ishappy = True
+        cutoff = 0
+        for func in self.funcs:
+            _ishappy, ncutoff = func.happy()
+            cutoff = max(ncutoff, cutoff)
+            ishappy &= _ishappy
+        return ishappy, cutoff
 
+    def prolong(self, n):
+        for i, function in enumerate(self.funcs):
+            self.funcs[i] = function.prolong(n)
         return self
 
-    def simplify(self):
-        cutoff = 0
-        for function in self.funcs:
-            happy, ncutoff = function.happy()
-            cutoff = max(cutoff, ncutoff)
-
-        # Finally simplify
-        return self.prolong(cutoff)
+    def simplify(self, *args, **kwargs):
+        for i, function in enumerate(self.funcs):
+            self.funcs[i] = function.simplify(*args, **kwargs)
+        return self
 
     """ Dictionary access to the underlying namespace """
     def keys(self):
@@ -194,32 +201,21 @@ class BaseState(np.lib.mixins.NDArrayOperatorsMixin):
             yield (par.name, par.value)
 
     """ I/O support """
-    def writeHDF5(self, fh, grp_name=None):
-        if grp_name is None: grp_name = type(self).__name__
-        grp = fh.create_group(grp_name)
-        grp.attrs["theta"] = self.theta
-        grp.attrs["cpar"] = self.cpar
-        grp.attrs["n"] = self.n
+    def writeHDF5(self, fh):
+        fh.create_dataset('weights', data=self.weights)
+        fh.create_dataset('signature', data=np.asarray(self.signature, dtype=np.int))
 
-        # Write the bigger objects
-        self.u.writeHDF5(grp)
+        for i, func in enumerate(self.funcs):
+            grp = fh.create_group('funcs{}'.format(i))
+            func.writeHDF5(grp)
+
+        for i, real in enumerate(self.reals):
+            grp = fh.create_group('reals{}'.format(i))
+            real.writeHDF5(grp)
+
+        # Write the namespace
+        grp = fh.create_group('ns')
         self.ns.writeHDF5(grp)
-
-    def readHDF5(self, fh, grp_name=None, *args, **kwargs):
-        if grp_name is None: grp_name = type(self).__name__
-        fh = fh[grp_name]
-
-        # load function
-        self.u = Fun(file=fh)
-
-        # create the namespace
-        self.ns = Namespace()
-        self.ns.readHDF5(fh)
-
-        # Load the rest of the parameters
-        self.theta = fh.attrs['theta']
-        self.n = fh.attrs['n']
-        self.cpar = fh.attrs['cpar']
 
     """ Internal interface """
     def __array__(self):
@@ -234,7 +230,18 @@ class BaseState(np.lib.mixins.NDArrayOperatorsMixin):
         return 'BaseState = {}'.format(self.funcs[0])
 
     def __getitem__(self, idx):
-        return self.funcs[0][idx]
+        m = self.u.m
+        return self.funcs[idx // m][idx % m]
+
+    def __iter__(self):
+        self.ipos = 0
+        return self
+
+    def __next__(self):
+        if self.ipos >= self.columns:
+            raise StopIteration
+        self.ipos += 1
+        return self[self.ipos-1]
 
     def __setitem__(self, key, value):
         # TODO: this is not elegant at all; and setitem and getitem do
@@ -374,6 +381,22 @@ def inner(state1, state2):
     for i in range(n):
         ip = state1.weights[i] * np.inner(state1.funcs[i], state2.funcs[i])
         inner += np.sum(ip.diagonal()) if ip.ndim == 2 else np.sum(ip)
+
+    for i in range(m):
+        inner += state1.weights[i+n] * np.inner(state1.reals[i], state2.reals[i])
+
+    return inner
+
+
+def innerw(state1, state2):
+    """ state is a Cartesian space of X x R,
+        thus the inner product (state1, state2) = Int(u1, u2) + (a1, a2)
+    """
+    inner = 0.0
+    n, m = state1.fshape
+    for i in range(n):
+        ip = state1.weights[i] * fp.innerw(state1.funcs[i], state2.funcs[i])
+        inner += np.sum(ip)
 
     for i in range(m):
         inner += state1.weights[i+n] * np.inner(state1.reals[i], state2.reals[i])

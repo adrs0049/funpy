@@ -8,12 +8,11 @@ import scipy.sparse.linalg as LAS
 from scipy.sparse import eye, csr_matrix
 from sparse.csr import delete_rows_csr, eliminate_zeros_csr
 
-from fun import Fun
-from fun import norm
+from fun import Fun, norm, ones
 
 from colloc.coeffsDiscretization import coeffsDiscretization
-from colloc.ultraS.matrices import convertmat, convertmat_inv, diffmat, intmat, multmat, delete_rows
-from colloc.ultraS.matrices import blockmat
+from colloc.ultraS.matrices import convertmat, convertmat_inv, diffmat, multmat, delete_rows
+from colloc.ultraS.matrices import blockmat, realmat, intmat
 from cheb.chebpts import quadwts
 from cheb.detail import polyval
 
@@ -32,7 +31,7 @@ class ultraS(coeffsDiscretization):
         blocks = np.empty(self.numIntervals, dtype=object)
         for i in range(self.numIntervals):
             blocks[i] = convertmat(n[i], K1, K2, format='csr')
-        return sps.block_diag(blocks)
+        return sps.block_diag(blocks, format='csr')
 
     def iconvert(self, K1, K2=None):
         n = self.dimension
@@ -66,6 +65,15 @@ class ultraS(coeffsDiscretization):
         for i in range(self.numIntervals):
             length = domain[i+1] - domain[i]
             blocks[i] = intmat(n[i], format='csr') * 0.5 * length
+        return sps.block_diag(blocks)
+
+    def real(self):
+        #domain = self.domain
+        n = self.dimension
+        blocks = np.empty(self.numIntervals, dtype=object)
+        for i in range(self.numIntervals):
+            #length = domain[i+1] - domain[i]
+            blocks[i] = realmat(n[i], format='csr')
         return sps.block_diag(blocks)
 
     def mult(self, f, lam):
@@ -138,7 +146,7 @@ class ultraS(coeffsDiscretization):
 
         return PA, P, PS
 
-    def quasi2diffmat(self, source, basis_conv=True, *args, **kwargs):
+    def quasi2diffmat(self, source, basis_conv=True, adjoint=False, *args, **kwargs):
         """ Converts the coefficients of the linear differential operator into
             a matrix representation of the linear differential operator "M".
 
@@ -152,7 +160,19 @@ class ultraS(coeffsDiscretization):
         # Info is sorted by differential term order from 0 -> diffOrder
         info = source.info()
 
+        # Create sparse matrix object.
         L = csr_matrix((np.sum(dim), np.sum(dim)))
+
+        """
+        Discretize a sequence of linear differential operators of the forms:
+
+                                du^n
+            L[u] := a^N(x, u)  ------
+                                dx^N
+
+        The result must output in the C^{n} basis, thus in addition we multiply
+        with the required basis conversion matrix.
+        """
         for j in range(coeff.shape[0]):
             # Only call the various matrix assembly functions only if the terms are non-zero!
             if not info[j]: continue
@@ -170,7 +190,22 @@ class ultraS(coeffsDiscretization):
 
         # check if we have an integral term defined!
         if info[-1]:
-            L += self.convert(0) * self.mult(source.getICoeffs(), 0) * self.int()
+            """
+            Discretize a sequence of non-local operators of the forms:
+
+                L[u] := c(x, u) ∫ d(x, u) u(x) dx
+
+            """
+            # TODO: improve this! But this should work for the moment!
+            if adjoint:
+                L += self.convert(0) * self.mult(source.getICoeffs(), 0) * self.real()
+            else:
+                # We might have a sequence of such operators
+                icoeffs = source.getICoeffs()
+                integrands = source.getIntegrand()
+
+                for j in range(icoeffs.shape[0]):
+                    L += self.convert(0) * self.mult(icoeffs[j], 0) * self.int() * self.mult(integrands[j], 0)
 
         # if transform -> want to make sure everything is with respect to standard basis!
         transform = kwargs.get('transform', False)
@@ -234,15 +269,18 @@ class ultraS(coeffsDiscretization):
         P = eliminate_zeros_csr(P)
         return P
 
-    def rhs(self, u=None):
+    def rhs_detail(self, u=None):
         """ Generate the discretization of the right hand side """
         # If u is not None -> update the source first!
         if u is not None:
             assert np.all(self.domain == u.domain), 'Domain mismatch %s != %s!' % (self.domain, u.domain)
             self.source.update_partial(u)
 
-        # now project and apply change of basis matrix!
-        return self.project_vector_cts(self.source.rhs.values.flatten(order='F'))
+        return self.source.rhs.values.flatten(order='F')
+
+    def rhs(self, u=None):
+        # projects the right hand side!
+        return self.project_vector_cts(self.rhs_detail(u=u))
 
     def project_vector_cts(self, vector):
         # now project and apply change of basis matrix!

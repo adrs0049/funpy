@@ -13,7 +13,7 @@ class LinSysBase:
     """
     def __init__(self, diffOrder: int, *args, **kwargs):
         self.ns = Namespace()
-        self.n_disc = kwargs.get('n_disc', 15)
+        self.n_disc = kwargs.pop('n_disc', 15)
         self.par = kwargs.pop('par', False)
 
         # store this
@@ -66,7 +66,8 @@ class LinSysBase:
         return 0
 
     def getOutputSpace(self) -> int:
-        return self.diffOrder
+        #return self.diffOrder
+        return self.projOrder
 
     def getProjOrder(self):
         # TODO not ideal!

@@ -9,8 +9,7 @@ from ac.gen import CodeGeneratorBackend
 
 def execute_pycode(pycode, namespace, debug=False):
     """ Function executes code into a given namespace """
-    if debug:
-        print(pycode)
+    if debug: print(pycode)
 
     # Execute the generate code
     try:
@@ -54,7 +53,8 @@ def sympy_base_program_ode(function_names, parameters={}):
     cg.dedent()
     return cg.end()
 
-def sympy_base_program(function_names, operator_names=[],
+def sympy_base_program(function_names, constant_function_names,
+                       operator_names=[],
                        kernels=[], parameters={},
                        unlikely_var_name='dummy_variable',
                        constant_functions=False, positive_parameters=True,
@@ -96,6 +96,14 @@ def sympy_base_program(function_names, operator_names=[],
     # TODO: Why doesn't sympy simplify constant functions ??
     cg.write('# Function symbols')
     for function_name in function_names:
+        if constant_functions:
+            cg.write('{0} = symbols("{0}", real={1:}, constant={2:})'.format(function_name, real, constant_functions))
+        else:
+            cg.write('{0} = Function("{0}", real={1:}, constant={2:})(x)'.format(function_name, real, constant_functions))
+
+    cg.write('')
+    cg.write('# Constant Function symbols')
+    for function_name, function_code in constant_function_names.items():
         if constant_functions:
             cg.write('{0} = symbols("{0}", real={1:}, constant={2:})'.format(function_name, real, constant_functions))
         else:

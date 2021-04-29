@@ -15,11 +15,12 @@ class QuasiOpBlock:
         # Storage for current coefficients
         self.coeffs    = kwargs.pop('coeffs', np.empty(1, dtype=object))
         self.nl_coeffs = kwargs.pop('nl_coeffs', np.empty(1, dtype=object))
-        self.integral  = kwargs.pop('integral', None)
+        self.icoeffs  = kwargs.pop('icoeffs', None)
+        self.integrand  = kwargs.pop('integrand', None)
 
     @property
     def has_nonlocal(self):
-        return self.integral is not None
+        return self.icoeffs is not None
 
     @property
     def positive(self):
@@ -28,6 +29,10 @@ class QuasiOpBlock:
     @property
     def diff_order(self):
         return self.coeffs.size
+
+    @property
+    def numNonLocal(self):
+        return self.icoeffs.size if self.icoeffs is not None else 0
 
     def info(self):
         return self._info
@@ -45,7 +50,11 @@ class QuasiOpBlock:
 
     def getICoeffs(self):
         """ Returns the coefficients of the derivative terms of the linear operator """
-        return self.integral
+        return self.icoeffs
+
+    def getIntegrand(self):
+        """ Returns the coefficients of the derivative terms of the linear operator """
+        return self.integrand
 
     """ Allowed mathematical operations, in the vector space of operators! """
     def __pos__(self):
@@ -66,12 +75,20 @@ class QuasiOpBlock:
             nl_new_coeffs = np.empty(1, dtype=object)
 
         # add integral operators
-        new_int = None
-        if self.has_nonlocal:
-            new_int = -self.integral
+        new_icoeffs = None
+        new_integrand = None
 
-        return QuasiOpBlock(self.block, coeffs=new_coeffs, integral=new_int,
-                            nl_coeffs=nl_new_coeffs,
+        if self.has_nonlocal:
+            new_icoeffs = np.empty_like(self.icoeffs, dtype=object)
+            for i in range(self.icoeffs.size):
+                new_icoeffs = -self.icoeffs[i]
+
+            new_integrand = np.empty_like(self.integrand, dtype=object)
+            for i in range(self.integrand.size):
+                new_integrand = -self.integrand[i]
+
+        return QuasiOpBlock(self.block, coeffs=new_coeffs, icoeffs=new_icoeffs,
+                            integrand=new_integrand, nl_coeffs=nl_new_coeffs,
                             info=self.info(), nl_info=self.nl_info())
 
     def __add__(self, other):
@@ -97,21 +114,34 @@ class QuasiOpBlock:
             nl_new_coeffs = np.empty(1, dtype=object)
 
         # add integral operators
-        new_int = None
+        new_icoeffs = None
+        new_integrand = None
 
-        # If one of the operators has the non-local property set -> see whether we need to add or
-        # just take the one that has one! TODO: Should we just by default set the coefficient to zero?
+        # If one of the operators has the non-local property set ->
+        # see whether we need to add or just take the one that has one!
+        # TODO: Should we just by default set the coefficient to zero?
         if self.has_nonlocal and other.has_nonlocal:
-            new_int = self.integral + other.integral
+            new_icoeffs = np.empty_like(self.icoeffs, dtype=object)
+            for i in range(self.icoeffs.size):
+                new_icoeffs[i] = other.icoeffs[i] + self.icoeffs[i]
+
+            new_integrand = np.empty_like(self.integrand, dtype=object)
+            for i in range(self.integrand.size):
+                new_integrand[i] = other.integrand[i] + self.integrand[i]
+
         elif self.has_nonlocal and not other.has_nonlocal:
-            new_int = self.integral
+            new_icoeffs = self.icoeffs
+            new_integrand = self.integrand
+
         elif not self.has_nonlocal and other.has_nonlocal:
-            new_int = other.integral
+            new_icoeffs = other.icoeffs
+            new_integrand = other.integrand
 
         new_info = self.info() | other.info()
         new_nl_info = self.nl_info() | other.nl_info()
-        return QuasiOpBlock(self.block, coeffs=new_coeffs, integral=new_int,
-                            nl_coeffs=nl_new_coeffs, info=new_info, nl_info=new_nl_info)
+        return QuasiOpBlock(self.block, coeffs=new_coeffs, icoeffs=new_icoeffs,
+                            integrand=new_integrand, nl_coeffs=nl_new_coeffs,
+                            info=new_info, nl_info=new_nl_info)
 
     def __sub__(self, other):
         return self.__add__(-other)
@@ -138,14 +168,22 @@ class QuasiOpBlock:
             nl_new_coeffs = np.empty(1, dtype=object)
 
         # add integral operators
-        new_int = None
+        new_icoeffs = None
+        new_integrand = None
         if self.has_nonlocal:
-            new_int = other * self.integral
+            new_icoeffs = np.empty_like(self.icoeffs, dtype=object)
+            for i in range(self.icoeffs.size):
+                new_icoeffs[i] = other * self.icoeffs[i]
+
+            new_integrand = np.empty_like(self.integrand, dtype=object)
+            for i in range(self.integrand.size):
+                new_integrand[i] = other * self.integrand[i]
 
         new_info = self.info() | other.info()
         new_nl_info = self.nl_info() | other.nl_info()
-        return QuasiOpBlock(self.block, coeffs=new_coeffs, integral=new_int,
-                            nl_coeffs=nl_new_coeffs, info=new_info, nl_info=new_nl_info)
+        return QuasiOpBlock(self.block, coeffs=new_coeffs, icoeffs=new_icoeffs,
+                            integrand=new_integrand, nl_coeffs=nl_new_coeffs,
+                            info=new_info, nl_info=new_nl_info)
 
     def __rmul__(self, other):
         return other * self

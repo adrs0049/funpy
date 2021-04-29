@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
+import itertools
 import numpy as np
 import scipy as sp
 import scipy.sparse as sps
@@ -155,8 +156,30 @@ class OpDiscretization(object):
         return sps.block_diag(S)
 
     def matrix_full(self, *args, **kwargs):
-        M, _, S0 = self.instantiate(self.source.quasiOp, *args, **kwargs)
+        M, Pc, S0 = self.instantiate(self.source.quasiOp, *args, **kwargs)
+
+        # then call reduce to create a rectangular matrix
+        #   -> Need to do this so that we generate the projection operator!
+        PA, P, PS = self.reduce(M, S0)
+
+        # Get the constraints -> we won't use them but need it!
+        cols = PA.shape[1]
+        B = self.getConstraints(cols)
+        m = self.shape[1]
+
+        if B is not None:
+            self.idenRows, bc_per = self.bc_rows(B)
+        else:
+            self.idenRows = np.arange(m * self.dimension)
+
+        # Create full matrix M
         M = blockmat(M)
+
+        # Generate the full S0 matrix
+        S0 = sps.bmat(S0)
+
+        # Create projection matrix
+        self.projection = RectangularProjection(P, S0)
 
         # Get the inverse basis transformation
         S = self.instantiate_i(self.source.quasiOp, *args, **kwargs)
@@ -170,12 +193,13 @@ class OpDiscretization(object):
         Currently this function uses rectangularization to impose functional constraints on solutions.
         """
         M, S0 = self.instantiate_adjoint(self.source.quasiOp, *args, **kwargs)
-        M = blockmat(M)
 
         # Get the inverse basis transformation
         if invert:
+            n, m = M.shape
             S = self.instantiate_i(self.source.quasiOp, *args, **kwargs)
-            M = sps.block_diag(S) * M
+            for i, j in itertools.product(range(n), range(m)):
+                M[i, j] = S[i] * M[i, j]
 
         if bc:
             # then call reduce to create a rectangular matrix
@@ -230,4 +254,10 @@ class OpDiscretization(object):
         return NotImplemented
 
     def diff_a(self, u):
+        return NotImplemented
+
+    def toFunctionOut(self, coeffs, cutoff):
+        return NotImplemented
+
+    def toFunctionIn(self, coeffs):
         return NotImplemented

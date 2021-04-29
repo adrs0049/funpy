@@ -35,24 +35,24 @@ class LinSys(LinSysBase):
         self.quasiOp = None
 
         # auto build on construction!
-        self.build(src, diffOrder)
+        self.build(src, diffOrder, **kwargs)
 
     def __str__(self):
         return 'LinSys'
 
-    def quasi(self, u, par=False):
+    def quasi(self, u, full=True, par=False, *args, **kwargs):
         """ Generates the Quasi matrix representing this linear operator """
         self.update(u)
 
         # TODO: FIXME again why the sub-selection of the object?
         try:
-            self.quasiOp = self.linOp.quasi(u.u)
+            self.quasiOp = self.linOp.quasi(u.u, *args, **kwargs)
         except AttributeError:
-            self.quasiOp = self.linOp.quasi(u)
+            self.quasiOp = self.linOp.quasi(u, *args, **kwargs)
 
         # Add any constraint operators
         if self.c_linOp is not None:
-            self.quasiOp += self.c_linOp.quasi(u.u)
+            self.quasiOp += self.c_linOp.quasi(u.u, *args, **kwargs)
 
         return self.quasiOp
 
@@ -72,27 +72,27 @@ class LinSys(LinSysBase):
 
         # Create the linear operator
         self.linOp = LinOp(self.ns, diffOrder)
-        self.linOp.build(src.lin, src.symbol_names['eqn'], src.symbol_names['adh'])
+        self.linOp.build(src.lin, src.symbol_names['eqn'], src.symbol_names['adh'], **kwargs)
 
         # Create the residual function
         self.rhs = Residual(self.ns, n_disc=self.n_disc, name='rhs')
-        self.rhs.build(src.eqn, src.symbol_names['eqn'])
+        self.rhs.build(src.eqn, src.n_eqn, **kwargs)
 
         # Create the p-derivative function
         if self.par:
             # The derivative of the operator w.r.t. the main continuation parameter
-            self.pDer = DerivativeFunctional(self.ns, n_disc=self.n_disc)
-            self.pDer.build(src)
+            self.pDer = DerivativeFunctional(self.ns, **kwargs)
+            self.pDer.build(src, **kwargs)
 
         # Build any constraints that may be defined!
         if src.lin_cts is not None:
             # If len(self.conditions) > 0 -> create linear operators for them!
             self.c_linOp = LinOp(self.ns, diffOrder)
-            self.c_linOp.build(src.lin_cts, src.symbol_names['cts'])
+            self.c_linOp.build(src.lin_cts, src.symbol_names['cts'], **kwargs)
 
             # Create rhs side for the condition
             self.c_rhs = Residual(self.ns, n_disc=self.n_disc, name='crhs')
-            self.c_rhs.build(src.cts, src.symbol_names['cts'])
+            self.c_rhs.build(src.cts, src.n_cts, **kwargs)
             def pp(u):
                 return u
             self.c_rhs.proj = lambda u: pp(u)
@@ -110,7 +110,7 @@ class LinSys(LinSysBase):
 
         # Update the residual
         self.rhs.update(u)
-        if self.c_linOp is not None:
+        if self.c_rhs is not None:
             self.c_rhs.update(u)
             self.rhs.values += self.c_rhs.values
 

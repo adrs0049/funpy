@@ -11,7 +11,17 @@ from colloc.quasiOpBlock import QuasiOpBlock
 
 
 class LinBlock:
-    """ Represents a linear operator acting on a single function """
+    """
+    Represents a linear operator acting on a single function of the form:
+
+                       d^n u
+    L[u] := a^n(x, u) ------ + ... + a^0(x, u) + c(x, u) ∫ d(x, u) u(x) dx
+                       dx^n
+
+    where a^i(x) i = [0, n], are continuous functions, and c(x) and d(x) are
+    continuous functions related to a possibly non-local operator.
+
+    """
     def __init__(self, ns, block, *args, **kwargs):
         # local namespace
         self.ns = ns
@@ -19,111 +29,98 @@ class LinBlock:
         # store block
         self.block = block
 
-        # rounding for coefficient terms
-        self.eps = kwargs.pop('eps', 1.48e-8)
-
-        # TODO: why need to keep this around! ?
-        self.diff_order = kwargs.pop('diff_order', 0)
-
         # see whether we need to print
         self.debug = kwargs.pop('debug', False)
 
         # Collect the functions in the namespace
-        self.coeffs   = kwargs.pop('coeffs', np.empty(self.diff_order + 1, dtype=object) if self.diff_order >= 0 else [])
+        self.coeffs   = kwargs.pop('coeffs', None)
+        self.info     = kwargs.pop('info', np.zeros(4).astype(bool))
 
-        self.info     = kwargs.pop('info', None)
-        # Non-local term coefficients!
-        self.nlcoeffs = kwargs.pop('nlcoeffs', np.empty(self.diff_order, dtype=object) if self.diff_order >= 0 else [])
-        self.nl_info  = kwargs.pop('nlinfo', None)
-        self.integral = kwargs.pop('integral', None)
+        # FIXME reimplement for new version
+        self.nlcoeffs = kwargs.pop('nlcoeffs', None)
+        self.nl_info  = kwargs.pop('nl_info', np.zeros(2).astype(bool))
+
+        # Integral operators as part of this block
+        self.icoeffs   = kwargs.pop('icoeffs', None)
+        self.integrand = kwargs.pop('integrand', None)
 
     @property
     def has_nonlocal(self):
-        return self.integral is not None
+        return self.icoeffs is not None
 
     @property
     def positive(self):
         return self.info()
 
-    def build(self, symbol_name, symbol_name_nonlocal='g'):
-        # Filters for the coefficients of the derivative terms
-        reg1 = re.compile(r'^({0:s}|{1:s}){2:s}\d+$'.format(symbol_name.lower(), symbol_name.upper(), self.block)).search
-        reg2 = re.compile(r'\d+$').search
-        # Filter for the positivity information function
-        reg3 = re.compile(r'^({0:s}|{1:s})info{2:s}'.format(symbol_name.lower(), symbol_name.upper(), self.block)).search
-        # Filter for the integral terms
-        reg4 = re.compile(r'^({0:s}|{1:s}){2:s}i'.format(symbol_name.lower(), symbol_name.upper(), self.block)).search
+    def build(self, src):
+        self.coeffs = np.empty(src.diffOrder + 1, dtype=object)
+        self.info = None
 
-        # Filters for the coefficients of the derivative terms
-        reg5 = re.compile(r'^({0:s}|{1:s}){2:s}\d+$'.format(symbol_name_nonlocal.lower(), symbol_name_nonlocal.upper(), self.block)).search
-        # Filter for the positivity information function
-        reg7 = re.compile(r'^({0:s}|{1:s})info{2:s}'.format(symbol_name_nonlocal.lower(), symbol_name_nonlocal.upper(), self.block)).search
+        # Deal with the differential operators
+        for op in src.dops:
+            try:
+                self.coeffs[op.order] = self.ns[op.symbol_name]
+            except KeyError:
+                raise RuntimeError("Could not find symbol \"{0:s}\"".format(op.symbol_name))
 
-        for symbol in self.ns.keys():
-            fname = reg1(symbol)
-            iname = reg3(symbol)
-            jname = reg4(symbol)
+        # Look up information
+        try:
+            self.info = self.ns[src.symbol_name]
+        except KeyError:
+            raise RuntimeError("Could not find symbol \"{0:s}\"".format(src.symbol_name))
 
-            # Find non-local stuff
-            gname  = reg5(symbol)
-            giname = reg7(symbol)
+        # Look up the non-local operators
+        if src.numNonLocal > 0:
+            self.icoeffs   = np.empty(src.numNonLocal, dtype=object)
+            self.integrand = np.empty(src.numNonLocal, dtype=object)
 
-            if fname is not None:
-                fname = fname.group(0)
-
-                # also grab the order
+            for i, op in enumerate(src.iops):
                 try:
-                    order = int(reg2(symbol).group(0)[-1])
-                except Exception as e:
-                    print('Failed to lookup order for symbol %s.' % symbol)
+                    self.icoeffs[i] = self.ns[op.symbol_name_c]
+                except KeyError:
+                    raise RuntimeError("Could not find symbol \"{0:s}\"".format(op.symbol_name_c))
 
-                if self.debug: print('LinBlock {0:s}.'.format(self.block), symbol)
-                self.coeffs[order] = self.ns[symbol]
-
-            elif gname is not None:
-                gname = gname.group(0)
-
-                # also grab the order
                 try:
-                    order = int(reg2(symbol).group(0)[-1])
-                except Exception as e:
-                    print('Failed to lookup order for symbol %s.' % symbol)
+                    self.integrand[i] = self.ns[op.symbol_name_i]
+                except KeyError:
+                    raise RuntimeError("Could not find symbol \"{0:s}\"".format(op.symbol_name_i))
 
-                if self.debug: print('LinBlock {0:s}.'.format(self.block), symbol)
-                self.nlcoeffs[order] = self.ns[symbol]
-
-            # Deal with the other two functions we might want to access
-            elif iname is not None:
-                if self.debug: print('LinBlock {0:s} info: '.format(self.block), symbol)
-                self.info = self.ns[symbol]
-            elif giname is not None:
-                if self.debug: print('LinBlock {0:s} info: '.format(self.block), symbol)
-                self.nl_info = self.ns[symbol]
-            elif jname is not None:
-                if self.debug: print('LinBlock {0:s} integral: '.format(self.block), symbol)
-                self.integral = self.ns[symbol]
-
-    def quasi(self, u):
+    def quasi(self, u, *args, **kwargs):
+        """
+            Returns the quasi operator of this particular linear block.
+            This essentially computes the current coefficients a^i(x, u)
+            and c(x, u), d(x, u).
+        """
+        eps = kwargs.get('eps', np.finfo(float).eps)
         new_coeffs = np.empty(len(self.coeffs), dtype=object)
         for i, coeff in enumerate(self.coeffs):
-            new_coeffs[i] = coeff(*u).simplify(eps=self.eps)
+            new_coeffs[i] = coeff(*u).simplify(eps=eps)
 
-        if np.any(self.nl_info()):
-            new_nl_coeffs = np.empty(len(self.nlcoeffs), dtype=object)
-            for i, coeff in enumerate(self.nlcoeffs):
-                new_nl_coeffs[i] = coeff(*u).simplify(eps=self.eps)
-        else:
-            new_nl_coeffs = np.empty(1, dtype=object)
+        # if np.any(self.nl_info()):
+        #     new_nl_coeffs = np.empty(len(self.nlcoeffs), dtype=object)
+        #     for i, coeff in enumerate(self.nlcoeffs):
+        #         new_nl_coeffs[i] = coeff(*u).simplify(eps=eps)
+        # else:
+        #     new_nl_coeffs = np.empty(1, dtype=object)
 
         # update the integral term
-        new_integral = None
+        new_icoeffs = None
+        new_integrand = None
+
         if self.has_nonlocal:
-            new_integral = self.integral(*u).simplify(eps=self.eps)
+            new_icoeffs = np.empty(len(self.icoeffs), dtype=object)
+            new_integrand = np.empty(len(self.integrand), dtype=object)
+
+            for i, coeffs in enumerate(self.icoeffs):
+                new_icoeffs[i] = coeffs(*u).simplify(eps=eps)
+
+            for i, integ in enumerate(self.integrand):
+                new_integrand[i] = integ(*u).simplify(eps=eps)
 
         return QuasiOpBlock(self.block, info=np.asarray(self.info()),
-                            coeffs=new_coeffs, nl_coeffs=new_nl_coeffs,
-                            nl_info=np.asarray(self.nl_info()),
-                            integral=new_integral)
+                            nl_info=np.asarray(self.nl_info),
+                            coeffs=new_coeffs, icoeffs=new_icoeffs,
+                            integrand=new_integrand)
 
     def __str__(self):
         return 'LinBlock[%s]' % self.block

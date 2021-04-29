@@ -53,7 +53,7 @@ def convertmat_inv(n, K1, K2, format=None):
         S = spconvert_inv(n, s, format=format) * S
     return S
 
-def multmat(k, f, lam, chop=False, format=None, eps=1.48e-8):
+def multmat(k, f, lam, chop=False, format=None, eps=np.finfo(float).eps):
     """ Multiplication matrices for ultraS
 
         This function forms the k x k multiplication matrix representing the multiplication of F in the C^(lambda) basis.
@@ -139,6 +139,13 @@ def intmat(k, format=None):
     w[1::2] = 0
     I = lil_matrix((k, k))
     I[0, :] = w
+    return I.asformat(format)
+
+def realmat(k, format=None):
+    """ Projection matrices for ultraS
+    """
+    I = lil_matrix((k, k))
+    I[0, 0] = 1.0
     return I.asformat(format)
 
 def evalfun(n, location):
