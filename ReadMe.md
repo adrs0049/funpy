@@ -33,9 +33,9 @@ Status
 --------
 
 1. The core features appear to work.
-2. **Warning:** The implementation surely has bugs.
+2. **Warning:** Almost surely there are bugs lurking.
 3. Some core features are unit-tested, but testing is not extensive enough.
-4. The Sympy support is slow and a mess.
+4. The Sympy support is (still) slow. Can we use the new sympy C++ core?
 
 ToDo
 -------
@@ -53,11 +53,13 @@ ToDo
    ```
 
 6. Remove dependency to jax, it's rather irritating.
-7. Improve `sympy` code, in particular fix the "compilation" of non-local equations.
-8. Complete continuation code in this repository.
-9. Clean-up the many bolted on features in the main operator class, collocators, and nonlinear solvers.
-10. Lazy evaluations of arithmetic operations? How to implement something like this in python? Is it even possible?
-11. Lots of other things need fixing and improving!
+7. Deal with boundary conditions of operators not being savable!
+8. Improve `sympy` code, in particular fix the "compilation" of non-local equations.
+9. Complete continuation code in this repository.
+10. Clean-up the many bolted on features in the main operator class, collocators, and nonlinear solvers.
+11. Lazy evaluations of arithmetic operations? How to implement something like this in python? Is it even possible?
+12. Lots of other things need fixing and improving!
+13. Replace the slow QR based Newton-Gauss solver with one based on the Schur trick and iterative solvers.
 
 Functions
 -------------------
@@ -153,7 +155,7 @@ matrices are sparse, and support for Krylov subspace methods exist.
 4. SparseSolve (umfpack)
 5. QR-Cholesky - solver which applies the Moore-Penrose inverse to
    underdetermined linear systems. Used for Newton-Gauss continuation. Both
-   sparse and dense versions available.
+   sparse and dense versions available. Slow has O(n^3) complexity.
 
 Continuation
 -----------------
