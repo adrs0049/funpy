@@ -5,13 +5,19 @@ import numpy as np
 import itertools
 from copy import copy
 
-from scipy.sparse import csr_matrix
+try:
+    from scipy.sparse import csr_array
+except ImportError:
+    from scipy.sparse import csr_matrix as csr_array
+
 import scipy.sparse.linalg as LAS
 
 from fun import Fun
+from functional import Functional
 from colloc.OpDiscretization import OpDiscretization
 from colloc.chebcolloc.chebcolloc2 import chebcolloc2
-from cheb.detail import polyval
+from cheb.detail import polyval, polyfit
+from cheb.chebpts import quadwts
 
 
 class coeffsDiscretization(OpDiscretization):
@@ -19,7 +25,6 @@ class coeffsDiscretization(OpDiscretization):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.coeffs = kwargs.pop('coeffs', np.zeros(1))
-        # TODO: solve me better!
         self.coeffs_orig = copy(self.coeffs)
 
     def getCoeffs(self):
@@ -43,43 +48,34 @@ class coeffsDiscretization(OpDiscretization):
         # Currently only has support for one ODE - nothing fancy yet
         for i in range(n):
             M[i] = self.iconvert(0)
+
         return M
 
-    def instantiate(self, source, *args, **kwargs):
+    def instantiate(self, source, precond=False, adjoint=False, *args, **kwargs):
+        # Grab the dimension
+        dim = self.dimension[0]
+
         # Move this somewhere else
         M = np.empty(source.shape, dtype=object)
-        P = np.empty(source.shape, dtype=object)
+        P = np.empty(source.shape, dtype=object) if precond else None
         S = np.empty(source.shape, dtype=object)
 
         # Currently only has support for one ODE - nothing fancy yet
-        n, m = source.shape
-        for i, j in itertools.product(range(n), range(m)):
-            # print('Instantiate[%d, %d].' % (i, j), ' coeff:', self.source[i, j])
-            M[i, j], S[i, j] = self.quasi2diffmat(source[i, j], basis_conv=(i == j), *args, **kwargs)
+        for i, j in np.ndindex(source.shape):
+            M[i, j], S[i, j] = self.quasi2diffmat(source[j, i] if adjoint else source[i, j],
+                                                  basis_conv=(i == j),
+                                                  adjoint=adjoint, *args, **kwargs)
 
-            # only generate a preconditioner for the diagonal components
-            if i == j:
-                P[i, j] = self.quasi2precond(source[i, j])
-            else:
-                dim = self.dimension[0]
-                P[i, j] = csr_matrix((dim, dim))
+            # If we are not construction the precond we are done
+            if not precond: continue
+
+            # Only generate a preconditioner for the diagonal components
+            P[i, j] = self.quasi2precond(source[i, j]) if i == j else csr_array((dim, dim))
 
         return M, P, S
 
-    def instantiate_adjoint(self, source, *args, **kwargs):
-        # Move this somewhere else
-        M = np.empty(source.shape, dtype=object)
-        S = np.empty(source.shape, dtype=object)
-
-        # Currently only has support for one ODE - nothing fancy yet
-        n, m = source.shape
-        for i, j in itertools.product(range(n), range(m)):
-            M[j, i], S[i, j] = self.quasi2diffmat(source[i, j], basis_conv=(i == j),
-                                                  adjoint=True, *args, **kwargs)
-
-        return M, S
-
     def instantiate_c(self, *args, **kwargs):
+        # TODO: merge with above function!
         # Move this somewhere else
         c_shape = self.source.cmat.shape
         M = np.empty(c_shape, dtype=object)
@@ -88,7 +84,6 @@ class coeffsDiscretization(OpDiscretization):
         # Currently only has support for one ODE - nothing fancy yet
         n, m = c_shape
         for i, j in itertools.product(range(n), range(m)):
-            # print('Instantiate[%d, %d].' % (i, j), ' coeff:', self.source[i, j])
             M[i, j] = self.quasi2cmat(self.source.cmat[i, j], basis_conv=(i == j), *args, **kwargs)
 
             # only generate a preconditioner for the diagonal components
@@ -149,8 +144,7 @@ class coeffsDiscretization(OpDiscretization):
 
         else:
             # Generate a value collocation to first represent the functionals
-            fun = Fun(op=m * [lambda x: np.zeros_like(x)], type='cheb')
-            fun.prolong(n)
+            fun = Fun(op=m * [lambda x: np.zeros_like(x)], type='cheb').prolong(n)
             valColloc = chebcolloc2(self.source, values=fun.values, domain=self.domain)
 
             # get the constraint matrices
@@ -166,3 +160,27 @@ class coeffsDiscretization(OpDiscretization):
                     blocks[i][:, k*n:(k+1)*n] = np.rot90(polyval(Ml), -1)
 
         return blocks
+
+    def convertToFunctional(self, f):
+        func = Functional(f, n=self.source.dshape[0]-2)
+        return np.asarray(func).squeeze()
+
+    def toFunction(self, functionals):
+        N, M = functionals.shape
+        coeffs = np.empty((M, N), dtype=float, order='F')
+        rescaleFactor = 0.5 * np.diff(self.domain)
+        n, m = self.shape
+        w = quadwts(n)
+
+        for k, functional in enumerate(functionals):
+            functional = functional.reshape((m, n))
+
+            v = np.empty((n, m), dtype=float)
+            for i, row in enumerate(functional):
+                row = np.atleast_2d(row)
+                v[:, i, None] = np.rot90(polyfit(np.rot90(row)).T / w) / rescaleFactor
+
+            fun = Fun.from_values(v, m, domain=self.domain)
+            coeffs[:, k] = self.toFunctionOut(fun.coeffs).flatten(order='F')
+
+        return coeffs

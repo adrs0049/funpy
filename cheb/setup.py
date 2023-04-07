@@ -2,21 +2,18 @@ import numpy as np
 from distutils.core import Extension, setup
 from Cython.Build import cythonize
 
-detail = Extension(name="detail",
-                    sources=["detail.pyx"],
-                    include_dirs=[np.get_include()],
-                    extra_compile_args=['-O3', '-march=native'],
-                    )
+sourcefiles = ['detail.pyx'] # , 'ufuncs.pyx']
+compileargs = ['-O3', '-march=native']
 
 setup(
-    ext_modules=cythonize(detail),
-)
-
-ufunc = Extension(name="ufuncs",
-                  sources=["ufuncs.pyx"],
+    ext_modules=cythonize([
+        Extension("detail",
+                  sourcefiles,
                   include_dirs=[np.get_include()],
-                  extra_compile_args=['-O3', '-march=native'],
-                )
-setup(
-    ext_modules=cythonize(ufunc),
+                  extra_compile_args=compileargs),
+        Extension("ufuncs",
+                  ['ufuncs.pyx'],
+                  include_dirs=[np.get_include()],
+                  extra_compile_args=compileargs)
+    ])
 )

@@ -9,6 +9,7 @@ import functools
 
 cimport numpy as np
 cimport cython
+cimport detail
 
 # Import this directly -> it's much faster!
 from scipy.fft._pocketfft.pypocketfft import dct
@@ -25,25 +26,29 @@ ctypedef np.double_t DTYPE_t
 ctypedef np.complex_t CTYPE_t
 
 # Helper functions
-cdef DTYPE_t r(DTYPE_t e1, DTYPE_t tol):
+cdef inline DTYPE_t r(DTYPE_t e1, DTYPE_t tol):
     """ """
     return 3.0 * (1.0 - log(e1)/log(tol))
 
-cdef Py_ssize_t max_idx(Py_ssize_t a, Py_ssize_t b):
+
+cdef inline Py_ssize_t max_idx(Py_ssize_t a, Py_ssize_t b):
     return b if (a < b) else a
 
-cdef Py_ssize_t min_idx(Py_ssize_t a, Py_ssize_t b):
+
+cdef inline Py_ssize_t min_idx(Py_ssize_t a, Py_ssize_t b):
     return a if (a < b) else b
+
 
 def chebptsAB(n, ab):
     # TODO: eventually generalize this again!
     x = chebpts_type2_compute(n)
     return 0.5 * (ab[1] * (x + 1) + ab[0] * (1 - x))
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-def polyfit(const double[:, :] sampled, int workers = 1):
+cpdef polyfit(const double[:, :] sampled, int workers = 1):
     """
     Compute Chebyshev coefficients for values located on Chebyshev points.
     sampled: array; first dimension is number of Chebyshev points
@@ -71,10 +76,11 @@ def polyfit(const double[:, :] sampled, int workers = 1):
 
     return c
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-def polyval(const double[:, :] chebcoeff, int workers = 1):
+cpdef polyval(const double[:, :] chebcoeff, int workers = 1):
     """ compute the interpolation values at chebyshev points. """
     N = chebcoeff.shape[0]
     M = chebcoeff.shape[1]
@@ -101,10 +107,11 @@ def polyval(const double[:, :] chebcoeff, int workers = 1):
     # Finally flip everything around!
     return np.flipud(v)
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-def prolong(double[::1, :] array, int Nout):
+cpdef prolong(double[::1, :] array, int Nout):
     # If Nout < length(self) -> compressed by chopping
     # If Nout > length(self) -> coefficients are padded by zero
     cdef Py_ssize_t Nin = array.shape[0]
@@ -117,7 +124,7 @@ def prolong(double[::1, :] array, int Nout):
 
     cdef double[::1, :] av
     if Ndiff > 0:  # pad with zeros
-        a = np.empty((Nout , M), dtype=cb_t, order='F')
+        a = np.empty((Nout, M), dtype=cb_t, order='F')
         av = a.view()
 
         for j in range(M):
@@ -134,10 +141,11 @@ def prolong(double[::1, :] array, int Nout):
         Nout = max_idx(Nout, 0)
         return array[:Nout, :]
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-def simplify_coeffs(double[::1, :] coeffs, eps=1.48e-8):
+cpdef simplify_coeffs(double[::1, :] coeffs, eps=1.48e-8):
     cdef Py_ssize_t nold = coeffs.shape[0]
     cdef Py_ssize_t N = max_idx(17, <Py_ssize_t>round(nold * 1.25 + 5))
     cdef Py_ssize_t m = coeffs.shape[1]
@@ -162,10 +170,11 @@ def simplify_coeffs(double[::1, :] coeffs, eps=1.48e-8):
     # chop coefficients: +1 here since cutoff is the last index to keep!
     return np.asarray(coeffs[:cutoff+1, :], order='F')
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-def happiness_check(double[::1, :] coeffs, double [::1] tol, Py_ssize_t minimum=17):
+cpdef happiness_check(double[::1, :] coeffs, double [::1] tol, Py_ssize_t minimum=17):
     cdef Py_ssize_t n = coeffs.shape[0]
     cdef Py_ssize_t m = coeffs.shape[1]
     cdef Py_ssize_t cutoff, k, rcutoff = 0
@@ -186,10 +195,11 @@ def happiness_check(double[::1, :] coeffs, double [::1] tol, Py_ssize_t minimum=
 
     return ishappy, rcutoff
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-def standardChop(double[::1] coeffs, double tol, Py_ssize_t minimum=17):
+cpdef standardChop(double[::1] coeffs, double tol, Py_ssize_t minimum=17):
     """
         coeffs: Column vector of real or complex numbers which are either
         Chebyshev or Fourier coefficients.
@@ -270,10 +280,11 @@ def standardChop(double[::1] coeffs, double tol, Py_ssize_t minimum=17):
 
     return cutoff
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-def standardChopCmplx(complex[::1] coeffs, double tol, Py_ssize_t minimum=17):
+cpdef standardChopCmplx(complex[::1] coeffs, double tol, Py_ssize_t minimum=17):
     """
         coeffs: Column vector of real or complex numbers which are either
         Chebyshev or Fourier coefficients.
@@ -361,7 +372,7 @@ def standardChopCmplx(complex[::1] coeffs, double tol, Py_ssize_t minimum=17):
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-def clenshaw_scalar(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] c):
+cpdef clenshaw_scalar(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] c):
     cdef Py_ssize_t N = x.shape[0]
     cdef Py_ssize_t n = c.shape[0] - 1
     cdef Py_ssize_t i, j
@@ -392,7 +403,7 @@ def clenshaw_scalar(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=1] c
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-def clenshaw_vector(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=2] c):
+cpdef clenshaw_vector(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=2] c):
     cdef Py_ssize_t N = x.size
     cdef Py_ssize_t n = c.shape[0] - 1
     cdef Py_ssize_t m = c.shape[1]
@@ -422,7 +433,7 @@ def clenshaw_vector(np.ndarray[DTYPE_t, ndim=1] x, np.ndarray[DTYPE_t, ndim=2] c
 
     return bk1
 
-def clenshaw(x, coeffs):
+cpdef clenshaw(x, coeffs):
     if len(coeffs.shape) == 1:
         return clenshaw_scalar(np.atleast_1d(x), coeffs)
     elif coeffs.shape[1] == 1:

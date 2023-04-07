@@ -76,7 +76,7 @@ class valsDiscretization(OpDiscretization):
 
     def rhs(self):
         """ Discretize the right hand side of a linear system """
-        xOut = self.equatioonpoints()
+        xOut = self.equationPoints()
 
         blocks = onp.empty((1, 1), dtype=object)
         for i in range(1):
@@ -109,8 +109,10 @@ class valsDiscretization(OpDiscretization):
 
         for i, constraint in enumerate(self.constraints):
             constraint.domain = self.domain
+
             # create derivative of the block
             dfunc = grad(constraint)
+
             # Force float64 here -> otherwise we encounter quite massive rounding errors!
             blocks[i] = np.expand_dims(dfunc(np.zeros((n, self.m), dtype=np.float64)).copy().flatten(order='F'), axis=0)
 
@@ -123,12 +125,14 @@ class valsDiscretization(OpDiscretization):
             return NotImplemented
         return HANDLED_FUNCTIONS[func](*args, **kwargs)
 
+
 """ Decorator to register onp functions """
 def implements(onp_function):
     def decorator(func):
         HANDLED_FUNCTIONS[onp_function] = func
         return func
     return decorator
+
 
 @implements(onp.diff)
 def diff(f, k=1, dim=0, *args, **kwargs):

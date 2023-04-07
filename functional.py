@@ -16,6 +16,10 @@ class Functional:
         weighted = kwargs.pop('weighted', False)
         rescaleFactor = 0.5 * np.diff(function.domain)
 
+        n = kwargs.pop('n', None)
+        if n is not None:
+            function = function.prolong(n)
+
         if weighted:
             self.coeffs = np.asarray(function)
             self.coeffs[0] *= np.pi

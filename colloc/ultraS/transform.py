@@ -3,10 +3,12 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 import scipy.linalg as LA
+import scipy.sparse as sps
 from functools import lru_cache
 from scipy.sparse import spdiags, eye, csr_matrix, coo_matrix, lil_matrix, diags
 
 CACHE_SIZE = 25
+
 
 def find(array):
     """ Returns row, col, v """
@@ -17,41 +19,76 @@ def find(array):
         row, col = np.nonzero(array)
         return row, col, array[row, col]
 
+
+def sptoeplitz_fast(col, format=None):
+    """  """
+    n = col.size
+
+    if n < 1e2:
+        if np.count_nonzero(col) == 1:
+            Ic = np.nonzero(col.squeeze())[0]
+            if Ic == 0:
+                T = spdiags(col[Ic] * np.ones(n), 0, n, n, format=format)
+            else:
+                # Diagonals are stored row-wise in the first argument!
+                T = spdiags(np.vstack((col[Ic] * np.ones(n), col[Ic] * np.ones(n))),
+                            np.hstack((-Ic, Ic)), n, n, format=format)
+        else:
+            T = LA.toeplitz(col, col)
+            T = csr_matrix(T).asformat(format)
+    else:
+        # locate non-zero diagonals
+        ic, jc, sc = find(col)
+
+        # use spdiags for construction
+        d = np.hstack((ic[1:], -ic))
+        B = np.tile(np.hstack((sc[1:], sc)), (n, 1)).T
+        T = spdiags(B, d, n, n, format=format)
+
+    return T
+
+
 def sptoeplitz(col, row, format=None):
     """  """
     m = col.size
     n = row.size
 
-    if m < 3e3 and n < 3e3:
+    if m < 1e2 and n < 1e2:
         if np.count_nonzero(col) == 1 and np.count_nonzero(row) == 1:
             Ic = np.nonzero(col.squeeze())[0]
             Ir = np.nonzero(row.squeeze())[0]
             if Ic == 0:
-                T = spdiags(col[Ic]*np.ones(m), 0, m, n, format=format)
+                T = spdiags(col[Ic] * np.ones(m), 0, m, n, format=format)
             else:
                 # Diagonals are stored row-wise in the first argument!
-                T = spdiags(np.vstack((col[Ic]*np.ones(m), row[Ir] * np.ones(n))),
+                T = spdiags(np.vstack((col[Ic] * np.ones(m), row[Ir] * np.ones(n))),
                             np.hstack((-Ic, Ir)), m, n, format=format)
         else:
             T = LA.toeplitz(col, row)
             T = csr_matrix(T).asformat(format)
     else:
-        raise RuntimeError("Implement me!")
         # locate non-zero diagonals
         ic, jc, sc = find(col)
         row[0] = 0  # not used
         ir, jr, sr = find(row)
 
         # use spdiags for construction
-        d = np.vstack((ir - 1, 1 - ic))
-        B = np.tile(np.vstack((sr, sc)).T, (min(m, n), 1))
+        d = np.hstack((ir, -ic))
+        B = np.tile(np.hstack((sr, sc)), (min(m, n), 1)).T
         T = spdiags(B, d, m, n, format=format)
 
     return T
 
+
 def sphankel(r, format=None):
     """ Sparse Hankel operator """
-    return lil_matrix(LA.hankel(r)).asformat(format)
+    n = r.size
+    r = np.flipud(r)
+    ic, jc, sc = find(r)
+
+    B = np.tile(sc, (n, 1)).T
+    return spdiags(B, ic, n, n).tocsr()[:, ::-1]
+
 
 @lru_cache(maxsize=CACHE_SIZE)
 def spconvert(n, lam, format=None):
@@ -61,13 +98,14 @@ def spconvert(n, lam, format=None):
     """
     assert lam >= 0, 'lam must be non-negative!'
     if lam == 0:
-        dg = 0.5 * np.ones(n-2)
+        dg = 0.5 * np.ones(n - 2)
         return spdiags(np.hstack((np.array([[1, 0.5], [0, 0]]), np.vstack((dg, -dg)))),
                        [0, 2], n, n, format=format)
     else:
         dg = lam / (lam + np.arange(2, n))
         return spdiags(np.hstack((np.array([[1, lam / (lam + 1)], [0, 0]]), np.vstack((dg, -dg)))),
-                       [0,2], n, n, format=format)
+                       [0, 2], n, n, format=format)
+
 
 @lru_cache(maxsize=CACHE_SIZE)
 def spconvert_inv(n, lam, format=None):
@@ -76,13 +114,10 @@ def spconvert_inv(n, lam, format=None):
         C^{lam + 1} -> C^{lam}
     """
     assert lam >= 0, 'Lambda must be non-negative!'
-    if n & 1:
-        nn = 1 + n // 2
-    else:
-        nn = n // 2
+    nn = 1 + n // 2 if n & 1 else n // 2
 
     if lam == 0:
-        dg = np.hstack((1, 2 * np.ones(n-1)))
+        dg = np.hstack((1, 2 * np.ones(n - 1)))
         return diags(nn * [dg], np.arange(0, n, 2))
     else:
         dg = np.hstack((1, (lam + np.arange(1, n, 1)) / lam))

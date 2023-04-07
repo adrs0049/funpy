@@ -4,6 +4,8 @@
 import itertools
 from sympy import Derivative, Integral
 
+from ac.gen import CodeGeneratorBackend
+
 from cheb.cbcode import cpcode
 
 
@@ -16,11 +18,17 @@ class NonlinearFunctionSource:
     """
     def __init__(self, src, *args, **kwargs):
         self.src = src
+        self.name = kwargs.pop('name', '')
+        self.function_names = kwargs.pop('functions', None)
         self.fun = kwargs.pop('fun', None)
         self.dummy = kwargs.pop('dummy', None)
         self.coeffs = kwargs.pop('coeffs', None)
         self.idx = kwargs.pop('idx', 0)
         self.posInfo = True
+
+        # Some stuff to set
+        self.ftype  = kwargs.pop('ftype', None)
+        self.domain = kwargs.pop('domain', None)
 
         # Collect symbol name
         self.symbol_name = ''
@@ -35,7 +43,8 @@ class NonlinearFunctionSource:
     def expr(self):
         return self.src
 
-    def emit(self, cg, name, function_names, ftype, domain, *args, **kwargs):
+    # TODO: Improve this hack eventually!
+    def emit_detail(self, cg, name, function_names, ftype, domain, *args, **kwargs):
         func = cpcode(self.src, no_evaluation=True)
         self.symbol_name = '{0:s}{1:d}'.format(name, self.idx)
 
@@ -48,3 +57,15 @@ class NonlinearFunctionSource:
 
         cg.dedent()
         cg.write('')
+
+    def emit(self, *args, **kwargs):
+        cg = CodeGeneratorBackend()
+        cg.begin(tab=4*" ")
+        cg.write(35 * '#')
+        cg.write('# Function block {0:s}.'.format(self.name))
+        cg.write(35 * '#')
+
+        self.emit_detail(cg, self.name, self.function_names,
+                         self.ftype, self.domain, *args, **kwargs)
+
+        return cg.end()

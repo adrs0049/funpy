@@ -1,25 +1,16 @@
-import time
 import numpy as np
-import scipy
 import scipy.linalg as LA
-import scipy.sparse.linalg as LAS
 import scipy.sparse as sps
 from math import sqrt
-import warnings
 from copy import deepcopy
-from sparse.csr import eliminate_zeros_csr
 
-from fun import minandmax
-from fun import Fun, h1norm, norm, norm2
+from fun import minandmax, norm
 from cheb.chebpts import quadwts
-from cheb.diff import computeDerCoeffs
-from states.State import ContinuationState
+from states.cont_state import ContinuationState
 from newton.pseudo_arclength import PseudoArcContinuationCorrector
-from newton.newton import NewtonBase, sprod, nnorm
-from linalg.qr_solve import QRCholesky
-from nlep.nullspace import right_null_vector
-from newton.deflated_residual import DeflatedResidual
-from support.tools import orientation_y, logdet, functional, Determinant
+from newton.newton_base import NewtonBase
+from linalg.nullspace import right_null_vector
+from support.tools import orientation_y, logdet, functional
 
 THETA_MAX = 0.5
 THETA_BAR = 0.25  # Theoretically this is 0.25; but practice shows this needs to be tighter

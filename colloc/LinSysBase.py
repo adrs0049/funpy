@@ -71,4 +71,4 @@ class LinSysBase:
 
     def getProjOrder(self):
         # TODO not ideal!
-        return self.projOrder * np.ones(self.linOp.shape[0])
+        return self.projOrder * np.ones(self.linOp.shape[0], dtype=int)

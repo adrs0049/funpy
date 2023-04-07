@@ -6,6 +6,7 @@ import numpy as np
 from colloc.linBlock import LinBlock
 from colloc.tools import execute_pycode
 
+
 class QuasiOp:
     def __init__(self, shape=None, *args, **kwargs):
         self.blocks = kwargs.pop('blocks', np.empty(shape, dtype=object))

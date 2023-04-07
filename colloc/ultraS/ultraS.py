@@ -2,17 +2,24 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-import scipy.linalg as LA
 import scipy.sparse as sps
-import scipy.sparse.linalg as LAS
-from scipy.sparse import eye, csr_matrix
-from sparse.csr import delete_rows_csr, eliminate_zeros_csr
+from scipy.sparse import eye
 
-from fun import Fun, norm, ones
+try:
+    from scipy.sparse import csr_array, csc_array
+except ImportError:
+    from scipy.sparse import csr_matrix as csr_array
+    from scipy.sparse import csc_matrix as csc_array
+
+from sparse.csr import delete_rows_csr, eliminate_zeros
+
+from fun import Fun
+from ultra import ultra2ultra
 
 from colloc.coeffsDiscretization import coeffsDiscretization
-from colloc.ultraS.matrices import convertmat, convertmat_inv, diffmat, multmat, delete_rows
-from colloc.ultraS.matrices import blockmat, realmat, intmat
+from colloc.ultraS.matrices import convertmat, convertmat_inv, diffmat, multmat
+from colloc.ultraS.matrices import blockmat, realmat, intmat, zeromat
+from colloc.ultraS.matrices import reduceOne
 from cheb.chebpts import quadwts
 from cheb.detail import polyval
 
@@ -23,71 +30,81 @@ class ultraS(coeffsDiscretization):
         # TODO FIXME eventually!
         self.name = 'coeff'
 
-    def convert(self, K1, K2=None):
+    def convert(self, K1, K2=None, format='csr'):
         n = self.dimension
         if K2 is None:
             K2 = self.getOutputSpace() - 1
 
         blocks = np.empty(self.numIntervals, dtype=object)
         for i in range(self.numIntervals):
-            blocks[i] = convertmat(n[i], K1, K2, format='csr')
-        return sps.block_diag(blocks, format='csr')
+            blocks[i] = convertmat(n[i], K1, K2, format=format)
 
-    def iconvert(self, K1, K2=None):
+        return sps.block_diag(blocks, format=format)
+
+    def iconvert(self, K1, K2=None, format='csr'):
         n = self.dimension
         if K2 is None:
             K2 = self.getOutputSpace() - 1
 
         blocks = np.empty(self.numIntervals, dtype=object)
         for i in range(self.numIntervals):
-            blocks[i] = convertmat_inv(n[i], K1, K2, format='csr')
-        return sps.block_diag(blocks)
+            blocks[i] = convertmat_inv(n[i], K1, K2, format=format)
 
-    def diff(self, m):
+        return sps.block_diag(blocks, format=format)
+
+    def diff(self, m, format='csr'):
         """ Generates the differentiation matrix of order m """
         domain = self.domain
         n = self.dimension
         if m == 0:
-            return eye(np.sum(n)).tocsr()
+            return eye(np.sum(n), format=format)
 
         # assuming that we only have on interval
         blocks = np.empty(self.numIntervals, dtype=object)
         for i in range(self.numIntervals):
-            length = domain[i+1] - domain[i]
-            blocks[i] = diffmat(n[i], m=m, format='csr') * (2/length)**m
-        return sps.block_diag(blocks)
+            length = domain[i + 1] - domain[i]
+            blocks[i] = diffmat(n[i], m=m, format=format) * (2 / length)**m
 
-    def int(self):
+        return sps.block_diag(blocks, format=format)
+
+    def int(self, format='csr'):
         domain = self.domain
         n = self.dimension
         # assuming that we only have on interval
         blocks = np.empty(self.numIntervals, dtype=object)
         for i in range(self.numIntervals):
-            length = domain[i+1] - domain[i]
+            length = domain[i + 1] - domain[i]
             blocks[i] = intmat(n[i], format='csr') * 0.5 * length
-        return sps.block_diag(blocks)
 
-    def real(self):
-        #domain = self.domain
+        return sps.block_diag(blocks, format=format)
+
+    def real(self, format='csr'):
+        # domain = self.domain
         n = self.dimension
         blocks = np.empty(self.numIntervals, dtype=object)
         for i in range(self.numIntervals):
-            #length = domain[i+1] - domain[i]
-            blocks[i] = realmat(n[i], format='csr')
-        return sps.block_diag(blocks)
+            # length = domain[i+1] - domain[i]
+            blocks[i] = realmat(n[i], format=format)
 
-    def mult(self, f, lam):
+        return sps.block_diag(blocks, format=format)
+
+    def mult(self, f, lam, **kwargs):
         n = self.dimension
 
         blocks = np.empty(self.numIntervals, dtype=object)
         for i in range(self.numIntervals):
-            blocks[i] = multmat(n[i], f[i], lam)
+            blocks[i] = multmat(n[i], f[i], lam, **kwargs)
         return sps.block_diag(blocks)
 
-    """ Rectangular differentiation matrix support """
-    def reduce(self, A, S):
+    def reduce(self, A, S, adjoint=False):
         """
-            returns PA, P, PS
+        Project the matrices A and S to the appropriate
+        rectangular differentiation matrices.
+
+        Returns:
+            - PA: Rectangular version of A.
+            - P:  Projection matrix.
+            - PS: Rectangular version of S.
         """
         r = self.getProjOrder()
         dim = self.dimension
@@ -98,61 +115,50 @@ class ultraS(coeffsDiscretization):
         PS = np.empty((1, A.shape[1]), dtype=object)
 
         for i in range(A.shape[1]):
-            PA[0, i], P[i], PS[0, i] = self.reduceOne(A[:, i], S[:, i], r[i], dim  + dimAdjust[i])
+            PA[0, i], P[i], PS[0, i] = reduceOne(A[:, i], S[:, i],
+                                                 r[i], dim  + dimAdjust[i])
+                                                 #adjoint=adjoint)
 
         P  = sps.block_diag(P)
-        PA = blockmat(PA)
-        PS = blockmat(PS)
+        PA = sps.bmat(PA)
+        PS = sps.bmat(PS)
         return PA, P, PS
 
-    def reduceOne(self, A, S, m, n):
-        """
-        Reduces the entries of the column cell arrays A and S from sum(N) x sum(N)
-        discretizations to sum(N - M) x sum(N) versions (PA and PS, respectively)
-        using the block-projection operator P.
-
-        m: The projection order
-        n: dim + dimAdjust
-
-        """
-        # Projection matrix for US remove the last m coeffs
-        P = eye(np.sum(n)).tocsr()
-        nn = np.cumsum(np.hstack((0, n)))
-        n = np.asarray([n])
-        # v are the row indices which are to be removed by projection
-        v = np.empty(0)
-        v = np.hstack((v, nn[0] + n[0] - np.arange(1, m + 1))).astype(int)
-        P = delete_rows_csr(P, v)
-
-        # project each component of A and S:
-        PA = np.copy(A)
-        PS = np.copy(S)
-
-        for j in range(PA.size):
-            if P.shape[1] == A[j].shape[0]:
-                PA[j] = delete_rows(PA[j], v)
-                PS[j] = delete_rows(PS[j], v)
-            else:
-                PA[j] = A[j]
-                PS[j] = S[j]
-
-        # TODO: can we deal with those expansion in a better way?
-        PA = blockmat(np.expand_dims(PA, axis=1))
-        PS = blockmat(np.expand_dims(PS, axis=1))
-
-        # Don't want to project scalars!
-        if m == 0 and A[0].shape[1] < np.sum(n):
-            P = eye(A.shape[1])
-
-        return PA, P, PS
-
-    def quasi2diffmat(self, source, basis_conv=True, adjoint=False, *args, **kwargs):
+    def quasi2diffmat(self, source, basis_conv=True, adjoint=False, format='csr', *args, **kwargs):
         """ Converts the coefficients of the linear differential operator into
             a matrix representation of the linear differential operator "M".
 
             It also returns the matrix S -> which is the basis conversion
             matrix from C^{0} -> C^{m} where m is the order of the highest
             order differential operator present.
+
+            Discretize a sequence of linear differential operators of the forms:
+
+                                    du^N
+                L[u] := a^N(x, u)  ------
+                                    dx^N
+
+            The result must output in the C^{n} basis, thus in addition we multiply
+            with the required basis conversion matrix.
+
+            Adjoint generation: Given the general second order operator
+
+                              du^2          du
+                L[u] := f(x) ------ + g(x) ---- + h(x) u
+                              dx^2          dx
+
+            The adjoint operator is given by
+
+                              du^2               du
+               L*[u] := f(x) ------ + (2f' - g) ---- + (f'' - g' + h) u
+                              dx^2               dx
+
+            For the moment we assume that the operator blocks are self-adjoint i.e.
+            can be written in the form:
+
+                        d           du
+                L[u] = ---- ( f(x) ---- ) + h(x) u
+                        dx          dx
         """
         dim = self.dimension
         # get operator coefficients
@@ -161,32 +167,19 @@ class ultraS(coeffsDiscretization):
         info = source.info()
 
         # Create sparse matrix object.
-        L = csr_matrix((np.sum(dim), np.sum(dim)))
+        L = zeromat((np.sum(dim), np.sum(dim)), format=format)
 
-        """
-        Discretize a sequence of linear differential operators of the forms:
-
-                                du^n
-            L[u] := a^N(x, u)  ------
-                                dx^N
-
-        The result must output in the C^{n} basis, thus in addition we multiply
-        with the required basis conversion matrix.
-        """
         for j in range(coeff.shape[0]):
             # Only call the various matrix assembly functions only if the terms are non-zero!
             if not info[j]: continue
 
             # form the D^(j - 1) term
-            # S = self.convert(j)
-            # D = self.diff(j)
-            # M = self.mult(coeff[j], j)
-            # print('C[%d]:' % j, coeff[j])
-            # print('S[%d]:' % j, S.todense())
-            # print('D[%d]:' % j, D.todense())
-            # print('M[%d]:' % j, M.todense())
-            # print('L[%d]:' % j, (self.convert(j) * self.mult(coeff[j], j) * self.diff(j)).todense())
-            L += self.convert(j) * self.mult(coeff[j], j) * self.diff(j)
+            #   => If adjoint and odd => put in a negative
+            if adjoint and j & 1:
+                L -= self.convert(j, format=format) * self.mult(coeff[j], j, format=format) * self.diff(j, format=format)
+            #   => If not an adjoint simply construct.
+            else:
+                L += self.convert(j, format=format) * self.mult(coeff[j], j, format=format) * self.diff(j, format=format)
 
         # check if we have an integral term defined!
         if info[-1]:
@@ -195,29 +188,37 @@ class ultraS(coeffsDiscretization):
 
                 L[u] := c(x, u) ∫ d(x, u) u(x) dx
 
+            The adjoint operator is given by
+
+                M[u] := d(x, u) ∫ c(x, u) u(x) dx
+
             """
-            # TODO: improve this! But this should work for the moment!
+            # We might have a sequence of such operators
             if adjoint:
-                L += self.convert(0) * self.mult(source.getICoeffs(), 0) * self.real()
+                icoeffs = source.getIntegrand()
+                integrands = source.getICoeffs()
             else:
-                # We might have a sequence of such operators
                 icoeffs = source.getICoeffs()
                 integrands = source.getIntegrand()
 
-                for j in range(icoeffs.shape[0]):
-                    L += self.convert(0) * self.mult(icoeffs[j], 0) * self.int() * self.mult(integrands[j], 0)
+            for j in range(icoeffs.shape[0]):
+                L += self.convert(0, format=format) * self.mult(icoeffs[j], 0, format=format) * self.int(format=format) * self.mult(integrands[j], 0, format=format)
 
         # if transform -> want to make sure everything is with respect to standard basis!
-        transform = kwargs.get('transform', False)
-        if transform:
-            Sinv = self.iconvert(0)
-            L = Sinv * L
+        # transform = kwargs.get('transform', False)
+        # if transform:
+        #     Sinv = self.iconvert(0, format=format)
+        #     L = Sinv * L
 
         # must remove almost zero elements now
-        L = eliminate_zeros_csr(L)
+        #L = eliminate_zeros(L)
 
         # create the conversion matrix as well
-        S = self.convert(0) if basis_conv else csr_matrix(L.shape)
+        if adjoint:
+            S = self.iconvert(0, format=format) if basis_conv else zeromat(L.shape, format=format)
+        else:
+            S = self.convert(0, format=format) if basis_conv else zeromat(L.shape, format=format)
+
         return L, S
 
     def quasi2cmat(self, source, basis_conv=True, *args, **kwargs):
@@ -233,18 +234,18 @@ class ultraS(coeffsDiscretization):
         info = source.info()
 
         # Create matrix
-        Lt = csr_matrix((np.sum(dim), np.sum(dim)))
+        Lt = csr_array((np.sum(dim), np.sum(dim)))
 
         # check if we have an integral term defined!
         if info[-1]:
             Lt += self.convert(0) * self.mult(source.getICoeffs(), 0) * self.int()
 
         # cut off some rows
-        L = csr_matrix((np.sum(dim), np.sum(dim))) if source.diff_order >= 0 else csr_matrix((1, np.sum(dim)))
+        L = csr_array((np.sum(dim), np.sum(dim))) if source.diff_order >= 0 else csr_array((1, np.sum(dim)))
         L = Lt[0, :]
 
         # must remove almost zero elements now
-        L = eliminate_zeros_csr(L)
+        #L = eliminate_zeros(L)
 
         # create the conversion matrix as well
         return L
@@ -258,66 +259,55 @@ class ultraS(coeffsDiscretization):
             return NotImplemented
 
         # Take the diagonal of the matrix + the multiplication operator of the coefficient!
-        P = csr_matrix((np.sum(dim), np.sum(dim)))
-        M = self.mult(coeff[-1], coeff.shape[0]-1)
+        P = csr_array((np.sum(dim), np.sum(dim)))
+        M = self.mult(coeff[-1], coeff.shape[0] - 1)
         if np.any(M.diagonal() == 0):
-            P = self.diff(coeff.shape[0]-1).tocsr()
+            P = self.diff(coeff.shape[0] - 1).tocsr()
         else:
-            P = M * self.diff(coeff.shape[0]-1).tocsr()
+            P = M * self.diff(coeff.shape[0] - 1).tocsr()
 
-        # must remove almost zero elements now
-        P = eliminate_zeros_csr(P)
         return P
 
-    def rhs_detail(self, u=None):
-        """ Generate the discretization of the right hand side """
-        # If u is not None -> update the source first!
-        if u is not None:
-            assert np.all(self.domain == u.domain), 'Domain mismatch %s != %s!' % (self.domain, u.domain)
-            self.source.update_partial(u)
-
-        return self.source.rhs.values.flatten(order='F')
-
-    def rhs(self, u=None):
-        # projects the right hand side!
-        return self.project_vector_cts(self.rhs_detail(u=u))
-
-    def project_vector_cts(self, vector):
-        # now project and apply change of basis matrix!
-        # TODO: why does numpy sometimes up-cast to complex here?
-        arr = np.real(self.projection._matvec(vector))
-        return np.hstack((self.source.cts_res.flatten(), arr))[self.idenRows]
-
-    def project_vector(self, vector):
+    def project_vector(self, vector, basis=True, cts=False):
         """
         Applies the projection and change of basis to a vector.
         For instance the vector representing the derivative of the nonlinear
         function with respect to a model parameter.
 
         The rows corresponding to the boundary conditions are replaced by zero.
+
+        Arguments:
+
+            vector: The vector that will the projected.
+            basis:  When True also apply the basis transformation.
+            cts:    Append the constraints residuals to the top. Otherwise set to zero.
+
         """
-        arr = self.projection._matvec(vector)
-        return np.concatenate((np.zeros(2 * self.source.dshape[1]), arr))[self.idenRows]
+        if isinstance(vector, Fun):
+            vector = vector.prolong(self.source.dshape[0]).flatten()
 
-    def diff_a_detail(self, u, *args, **kwargs):
-        # Returns a function object
-        dps = self.source.pDer(u, *args, **kwargs)
-        return np.hstack([dp.prolong(self.shape[0]).coeffs for dp in dps]).flatten(order='F').squeeze()
+        if basis:
+            arr = np.atleast_1d(self.projection._matvec(vector))
+        else:
+            arr = np.atleast_1d(self.proj._matvec(vector))
 
-    def diff_a(self, u, *args, **kwargs):
-        arr = self.diff_a_detail(u, *args, **kwargs)
-        return self.project_vector(arr)
+        carr = self.source.cts_res.flatten() if cts else np.zeros(self.numConstraints)
+        return np.concatenate((carr, arr))
 
-    def diff_a_adjoint(self, u):
-        # Sigh need this as a chebfun
-        dps = self.source.pDer(u)
+    def toFunctionOut(self, coeffs):
+        """ Convert function in Chebyshev basis into the output space """
+        return ultra2ultra(coeffs, 0, self.getOutputSpace())
 
-        n = int(self.shape[0])
-        w = quadwts(n)
-        rescaleFactor = 0.5 * np.diff(self.domain)
+    def toFunctionIn(self, coeffs, *args, **kwargs):
+        """
+            Convert function from the output basis i.e.
 
-        rhs = np.empty(len(dps), dtype=object)
-        for m in range(rhs.size):
-            rhs[m] = rescaleFactor * np.rot90(polyval(np.rot90(w * dps[m].prolong(n).values.T)), -1)
+                Function output in R x Function space.
 
-        return np.hstack(rhs)
+            into a Chebyshev polynomial
+        """
+        n = self.numConstraints
+        m = self.shape[1]
+        lam_in = kwargs.pop('lam_in', self.getOutputSpace())
+        return (np.asarray(coeffs[:n]),
+                Fun.from_ultra(coeffs[n:], m, lam_in, domain=self.domain))

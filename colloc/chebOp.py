@@ -2,17 +2,11 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import time
-import datetime
 from copy import deepcopy
 import numpy as np
-import sympy as syp
-import scipy.linalg as LA
-import scipy.sparse.linalg as LAS
 import h5py as h5
-from fun import Fun, norm2, zeros
+from fun import Fun, zeros
 
-from colloc.chebOpConstraint import ChebOpConstraint
-from colloc.chebOpConstraintCompiled import ChebOpConstraintCompiled
 from colloc.ultraS.ultraS import ultraS
 from colloc.trigspec.trigspec import trigspec
 from colloc.realDiscretization import realDiscretization
@@ -22,9 +16,8 @@ from colloc.BiLinSys import BiLinSys
 from colloc.function import Function
 from colloc.adapt import SolverAdaptive
 
-from newton.newton_standard import Newton
+from newton.newton import Newton
 from states.base_state import BaseState
-from states.State import BaseState, ContinuationState
 from states.deflation_state import DeflationState
 
 
@@ -110,13 +103,13 @@ class ChebOp:
                                 trigspec=trigspec).get(colloc, colloc)
         self.domain = kwargs.pop('domain', [-1, 1])
 
+        # function type
+        self.ftype = kwargs.pop('ftype', 'cheb' if self.colloc == 'ultraS' else 'trig')
+
         # self.functions = [u, v]
         # The default discretization size!
         self.n_disc = kwargs.pop('n', 15)
-        self.n_min = kwargs.pop('n_min', 1)
-
-        # function type
-        self.ftype = kwargs.pop('ftype', 'cheb' if self.colloc == 'ultraS' else 'trig')
+        self.n_min = kwargs.pop('n_min', 1 if self.ftype == 'cheb' else 2**3+1)
 
         # The expression for the equation.
         self.eqn = kwargs.pop('eqn', [])
@@ -128,7 +121,7 @@ class ChebOp:
         self.bcs = kwargs.pop('bc', [])
 
         # store cpar
-        self.cpar = []
+        self.cpar = kwargs.pop('cpar', [])
 
         # Projections
         self.proj = []
@@ -212,6 +205,7 @@ class ChebOp:
                               n=self.n_disc, cpar=cpar, **self.parameter_names)
 
     def setDisc(self, n):
+        n = int(n)
         self.n_disc = max(n, self.n_min)
         if self.linSys is not None: self.linSys.setDisc(n)
         if self.__biLinSys is not None: self.biLinSys.setDisc(n)
@@ -234,15 +228,18 @@ class ChebOp:
             _copy = type(self)(
                 debug=self.debug,
                 functions=deepcopy(self.function_names),
+                constant_functions=deepcopy(self.constant_function_names),
                 operator=deepcopy(self.operator_names),
                 kernels=deepcopy(self.kernels),
                 parameters=deepcopy(self.parameter_names),
-                colloc=self.colloc_type,
+                colloc=self.colloc,
                 domain=self.domain,
                 n_disc=self.n_disc,
                 eqn=deepcopy(self.eqn),
                 constraints=deepcopy(self.cts),
                 bc=deepcopy(self.bcs),
+                ftype=self.ftype,
+                cpar=self.cpar,
                 tol=self.lin_tol,
                 diff_order=self.diffOrder,
                 linear=self.linear
@@ -263,34 +260,25 @@ class ChebOp:
         self.isNonLocal = True if len(self.operator_names) > 0 else False
 
         # Create source object and generate pycode
-        self.source = Source(self.eqn, self.cts, self.function_names,
+        self.source = Source(self.eqn, self.cts, self.bcs,
+                             self.function_names,
                              self.constant_function_names,
                              self.operator_names, self.parameter_names,
                              self.kernels, nonLocal=self.isNonLocal,
-                             proj=self.proj, ftype=kwargs.pop('ftype', 'cheb'),
-                             diffOrder=self.diffOrder,
+                             proj=self.proj, ftype=self.ftype,
                              constant_functions=constant_functions,
                              domain=self.domain)
 
         # Do the sympy compile and generate the required operator python code!
-        self.source.compile(debug=self.debug, par=par, fold=fold,
+        self.source.compile(debug=self.debug, par=par, fold=par,
                             bif=bif, cpars=self.cpar)
+
+        # Set diffOrder
+        self.diffOrder = self.source.diffOrder
 
         # Create Linear System object now
         self.linSys = LinSys(self.source, self.diffOrder, n_disc=self.n_disc,
                              par=par, debug=debug)
-
-        # Construct the functional constraints
-        self.linSys.constraints = [ChebOpConstraint(op=bc, domain=self.domain) for bc in self.bcs]
-
-        # compile the constraints
-        bc_cache = ChebOpConstraintCompiled(self.linSys, n=2**12,
-                                            m=self.neqn, domain=self.domain)
-        blocks = bc_cache.compile()
-
-        # Assign the compiled BCs
-        for i, constraint in enumerate(self.linSys.constraints):
-            constraint.compiled = blocks[i]
 
         # Set parameters
         self.linSys.setParameters(self.parameter_names)
@@ -312,7 +300,7 @@ class ChebOp:
                                    par=par, debug=debug, matrix_name='fold')
 
         # Construct the functional constraints
-        self.__biLinSys.constraints = [ChebOpConstraint(op=bc, domain=self.domain) for bc in self.bcs]
+        #self.__biLinSys.constraints = [ChebOpConstraint(op=bc, domain=self.domain) for bc in self.bcs]
 
         # Set parameters
         self.__biLinSys.setParameters(self.parameter_names)
@@ -324,12 +312,13 @@ class ChebOp:
                                    par=par, debug=debug, matrix_name='bif', dp_name='dxdp_adj')
 
         # Construct the functional constraints
-        self.__mooreSys.constraints = [ChebOpConstraint(op=bc, domain=self.domain) for bc in self.bcs]
+        #self.__mooreSys.constraints = [ChebOpConstraint(op=bc, domain=self.domain) for bc in self.bcs]
 
         # Set parameters
         self.__mooreSys.setParameters(self.parameter_names)
 
-    def solve(self, f=None, p=2, verbose=True, state=False, adaptive=True, *args, **kwargs):
+    def solve(self, f=None, p=2, verbose=True, state=False,
+              adaptive=True, *args, **kwargs):
         """
         This function solves Op[u] = f using Newton's method.
 
@@ -337,31 +326,28 @@ class ChebOp:
             state - boolean "If true we return an object of type State "
         """
         # Use a Newton's method to solve the nonlinear operator
-        newton = Newton(self, tol=self.eps, ltol=self.lin_tol,
-                        debug=self.solver_debug, *args, **kwargs)
+        debug = self.solver_debug or kwargs.pop('debug', False)
+        eps = kwargs.pop('eps', self.eps)
+        newton = Newton(self, tol=eps, *args, **kwargs)
         newton.shape = (self.n_disc, len(self.eqn))
 
-        # The lambda min for the adaptive newton method
-        lambda_min = kwargs.get('lambda_min', 1e-4)
-
-        # Call the solver now
-        if f is None:
-            f = zeros(len(self.eqn), domain=self.domain)
-
         # Create initial state
+        if f is None: f = zeros(len(self.eqn), domain=self.domain)
         i_state = f if isinstance(f, BaseState) else DeflationState(u=f, **self.parameter_names)
+        if self.linSys is not None: self.linSys.setParameters(i_state)
 
         # Call the solver -> start the timer
         solve_st = time.time()
 
         if adaptive:
-            anw = SolverAdaptive(newton, ltol=self.lin_tol, n_min=self.n_min, ntol=self.eps)
-            s_state, success, iterations = anw.solve(i_state, eps=1e2*self.eps,
-                                                     verbose=verbose,
-                                                     lambda_min=lambda_min)
+            anw = SolverAdaptive(newton, n_min=self.n_min, ntol=eps)
+            s_state, success, iterations = anw.solve(
+                i_state, eps=1e2*eps, debug=debug,
+                verbose=verbose, *args, **kwargs)
         else:
             precond = False if self.ftype == 'trig' else True
-            s_state, success, iterations = newton.solve(i_state, lambda_min=lambda_min, precond=precond)
+            s_state, success, iterations = newton.solve(
+                i_state, precond=precond, debug=debug, *args, **kwargs)
 
         # The core solver is done -> stop the timer
         solve_ed = time.time()
@@ -376,12 +362,14 @@ class ChebOp:
         if soln is None:
             return None, False, np.inf
 
-        # simplify solution
-        happy, _ = soln.happy()
-        soln = soln.simplify(eps=np.finfo(float).eps)
-
         # Compute the residual
         res = self.residual(soln)
+
+        # simplify solution
+        happy, _ = soln.happy()
+        print('happy = ', happy, ' shape = ', soln.shape)
+        soln = soln.simplify(eps=np.finfo(float).eps)
+        print('soln = ', soln.shape)
 
         # Report whether the solve was successful!
         message = {True: 'successful', False: 'failed'}
@@ -389,10 +377,10 @@ class ChebOp:
 
         # Some consoles don't have unicode support!
         try:
-            print('{0:s} operator solved {1:s}. |res|{2:d} = {3:.6g}; ∫u = {4:.6g}.'.format(
+            print('{0:s} operator solved {1:s}. |res|{2:d} = {3:.6e}; ∫u = {4:.6e}.'.format(
                 nonlin[self.islinear], message[success], p, res, np.sum(np.sum(soln))))
         except:
-            print('{0:s} operator solved {1:s}. |res|{2:d} = {3:.6g}; Iu = {4:.6g}.'.format(
+            print('{0:s} operator solved {1:s}. |res|{2:d} = {3:.6e}; Iu = {4:.6e}.'.format(
                 nonlin[self.islinear], message[success], p, res, np.sum(np.sum(soln))))
 
         print('\tSolver time:', solve_ed - solve_st)
@@ -403,6 +391,7 @@ class ChebOp:
             return soln, success, res
 
     def __call__(self, u):
+        self.linSys.setDisc(u.shape[0])
         self.linSys.update_partial(u)
         return Fun(coeffs=self.linSys.rhs.values, domain=u.domain,
                    simplify=False, type=self.ftype)
@@ -410,7 +399,7 @@ class ChebOp:
     def residual(self, u, p=2):
         self.linSys.update_partial(u)
         res = Fun(coeffs=self.linSys.rhs.values, domain=u.domain, type=self.ftype)
-        residual = res.norm(p=p, weighted=True)
+        residual = res.norm(p=p)
 
         if self.linSys.numConstraints > 0:
             residual += np.linalg.norm(self.linSys.cts_res, ord=p)
@@ -454,7 +443,9 @@ class ChebOp:
 
         # make sure that the operator is prepared!
         self.ftype = u0.type
-        self.compile(ftype=u0.type, *args, **kwargs)
+        par = kwargs.pop('par', False)
+        par = False if not self.cpar else True
+        self.compile(ftype=u0.type, par=par, *args, **kwargs)
 
         return self.discretize_system(getattr(self, system_choices[sys_name]), u0, *args, **kwargs)
 
@@ -465,9 +456,9 @@ class ChebOp:
         # Write function names
         utf8_type = h5.string_dtype('utf-8', 30)
         dgrp['function_names'] = np.asarray([s.encode('utf-8') for s in self.function_names], dtype=utf8_type)
+        dgrp['constant_function_names'] = np.asarray([s.encode('utf-8') for s in self.constant_function_names], dtype=utf8_type)
         dgrp['operator_names'] = np.asarray([s.encode('utf-8') for s in self.operator_names], dtype=utf8_type)
         dgrp['kernels'] = np.asarray([s.encode('utf-8') for s in self.kernels], dtype=utf8_type)
-        #dgrp['parameters'] = np.asarray([s.encode('utf-8') for s in self.parameters.keys()], dtype=utf8_type)
         par_grp = dgrp.create_group('parameters')
         for pname, pvalue in self.parameter_names.items():
             par_grp.attrs[pname.encode('utf-8')] = pvalue
@@ -477,12 +468,15 @@ class ChebOp:
         utf8_type = h5.string_dtype('utf-8', 250)
         dgrp['eqn'] = np.asarray([s.encode('utf-8') for s in self.eqn], dtype=utf8_type)
         dgrp['cts'] = np.asarray([s.encode('utf-8') for s in self.cts], dtype=utf8_type)
+        dgrp['bcs'] = np.asarray([s.encode('utf-8') for s in self.bcs], dtype=utf8_type)
 
         # parameters
         dgrp['debug'] = self.debug
         dgrp['solver_debug'] = self.solver_debug
         dgrp['n_disc'] = self.n_disc
         dgrp['n_min'] = self.n_min
+        dgrp['ftype'] = self.ftype
+        dgrp['cpar'] = self.cpar[0]
         dgrp['domain_beg'] = self.domain[0]
         dgrp['domain_end'] = self.domain[1]
         dgrp['eps'] = self.eps
@@ -513,6 +507,12 @@ class ChebOp:
         for ct in fh['cts']:
             self.cts.append(ct.decode('utf-8'))
 
+        try:
+            for bc in fh['bcs']:
+                self.bcs.append(bc.decode('utf-8'))
+        except:
+            pass
+
         # parameters
         self.debug = dgrp['debug'][()]
         self.solver_debug = dgrp['solver_debug'][()]
@@ -522,6 +522,13 @@ class ChebOp:
         self.lin_tol = dgrp['lin_tol'][()]
         self.diffOrder = dgrp['diffOrder'][()]
         self.linear = dgrp['linear'][()]
+        try:
+            self.cpar = [dgrp['cpar'][()]]
+            self.colloc = [dgrp['colloc'][()]]
+            self.ftype = dgrp['ftype'][()]
+        except:
+            pass
+
         try:
             self.domain[0] = dgrp['domain_beg'][()]
             self.domain[1] = dgrp['domain_end'][()]

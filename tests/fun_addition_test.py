@@ -20,6 +20,7 @@ class TestFunAddition:
 
     def test_addition_scalar(self):
         fun1 = Fun(op=lambda x: np.ones_like(x), type='cheb')
+        print('fun1 = ', fun1)
         fun2 = fun1 + 2
         fun3 = 2 + fun1
 
@@ -41,3 +42,8 @@ class TestFunAddition:
         fun1 = Fun(op=lambda x: np.ones_like(x), type='cheb')
         fun1 += 2
         assert_(fun1.values == 3)
+
+
+if __name__ == '__main__':
+    test = TestFunAddition()
+    test.test_addition_scalar()

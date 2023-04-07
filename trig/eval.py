@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from math import ceil, floor
+from math import ceil
 
 def horner_vec_cmplx(x, c):
     n = c.shape[0]

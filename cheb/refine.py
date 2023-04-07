@@ -5,6 +5,7 @@ import numpy as np
 from cheb.detail import polyfit, polyval
 from cheb.chebpts import chebpts_type2_compute
 
+
 class FunctionContainer:
     def __init__(self, fs, dtype=np.float64, *args, **kwargs):
         self.fs = fs
@@ -18,6 +19,7 @@ class FunctionContainer:
         for i, f in enumerate(self.fs):
             r[:, i] = f(x)
         return r
+
 
 """ Base class for resampling and refining operations  """
 class RefineBase(object):

@@ -262,7 +262,7 @@ def multiply(x1, x2, **kwargs):
             if x1.isreal():
                 pos = True
 
-        elif x1.conj() == x2:
+        elif np.conj(x1) == x2:
             v = np.conj(nvals) * nvals
             pos = True
         else:

@@ -2,12 +2,15 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from scipy.sparse import csr_matrix
-from copy import copy
-import itertools
+
+try:
+    from scipy.sparse import csr_array
+except ImportError:
+    from scipy.sparse import csr_matrix as csr_array
 
 from fun import Fun
 from colloc.OpDiscretization import OpDiscretization
+from colloc.projection import RectangularProjection
 
 
 class realDiscretization(OpDiscretization):
@@ -20,8 +23,7 @@ class realDiscretization(OpDiscretization):
         self.constraints = []
 
     def quasi2diffmat(self, source, *args, **kwargs):
-        #print('coeffs = ', source.getCoeffs()[0].coeffs)
-        c_c = np.asarray(source.getCoeffs()[0]).item()
+        c_c = np.asarray(source.getCoeffs()[0].prolong(1)).item()
 
         icoeffs = source.getICoeffs()
         integrand = source.getIntegrand()
@@ -32,11 +34,10 @@ class realDiscretization(OpDiscretization):
 
     def instantiate(self, source, *args, **kwargs):
         # Move this somewhere else
-        M = np.empty(source.shape, dtype=np.float)
+        M = np.empty(source.shape, dtype=float)
 
         # Currently only has support for one ODE - nothing fancy yet
-        n, m = source.shape
-        for i, j in itertools.product(range(n), range(m)):
+        for i, j in np.ndindex(source.shape):
             M[i, j] = self.quasi2diffmat(source[i, j], *args, **kwargs)
 
         return M
@@ -47,33 +48,24 @@ class realDiscretization(OpDiscretization):
         M = self.instantiate(self.source.quasiOp)
         self.S0 = np.eye(n)   # Change of basis matrix
         self.P = np.eye(n)    # Projection matrix
-        return csr_matrix(M), np.eye(n), np.eye(n)
+        self.proj = RectangularProjection(self.P)
+        return csr_array(M), np.eye(n), np.eye(n)
 
-    def matrix_full(self, *args, **kwargs):
-        M, _, _ = self.matrix(*args, **kwargs)
-        return M
+    def linop(self, *args, **kwargs):
+        n, m = self.source.linOp.shape
+        self.projection = np.eye(n)
+        M = self.instantiate(self.source.quasiOp)
+        self.S0 = np.eye(n)   # Change of basis matrix
+        self.P = np.eye(n)    # Projection matrix
+        self.proj = RectangularProjection(self.P)
+        return csr_array(M), csr_array(M.T), np.eye(n)
 
-    def matrix_adjoint(self, *args, **kwargs):
-        M, _, _ = self.matrix(*args, **kwargs)
-        return M.T
+    def project_vector(self, vector, *args, **kwargs):
+        return np.asarray(vector)
 
-    def rhs_detail(self, u=None):
-        return self.rhs(u=u)
+    def toFunctionOut(self, coeffs):
+        return coeffs
 
-    def rhs(self, u=None):
-        if u is not None:
-            assert np.all(self.domain == u.domain), 'Domain mismatch %s != %s!' % (self.domain, u.domain)
-            self.source.update_partial(u)
-
-        return self.source.rhs.values.flatten(order='F')
-
-    def diff_a(self, u=None, *args, **kwargs):
-        dps = self.source.pDer(u, *args, **kwargs)
-        arr = np.hstack([dp.prolong(self.shape[0]).coeffs for dp in dps]).flatten(order='F').squeeze()
-        return arr
-
-    def diff_a_detail(self, *args, **kwargs):
-        return self.diff_a(*args, **kwargs)
-
-    def project_vector_cts(self, vector):
-        return vector
+    def toFunctionIn(self, coeffs, *args, **kwargs):
+        m = self.shape[1]
+        return (None, Fun.from_coeffs(coeffs, m, domain=self.domain))

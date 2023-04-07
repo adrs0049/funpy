@@ -4,13 +4,19 @@
 import numpy as np
 import h5py as h5
 from numbers import Number
-from copy import deepcopy, copy
+from copy import deepcopy
+import matplotlib.pyplot as plt
+
+# Local imports
+import cheb.chebpy as cheb
+from ultra import ultra2ultra
+
+from cheb.chebpy import chebtec
+from trig.trigtech import trigtech
 from functional import Functional
 from support.cached_property import lazy_property
-from trig.trigtech import trigtech
 from trig.operations import circconv, circshift, trig_adhesion
-from cheb.chebpy import chebtec
-import cheb.chebpy as cheb
+
 import trig.trigtech as trig
 from mapping import Mapping
 
@@ -54,6 +60,9 @@ class Fun(np.lib.mixins.NDArrayOperatorsMixin):
         # construct the function
         if self.onefun is None:
             self.__construct(op=op, hscale=self.hscale, *args, **kwargs)
+
+        # Make sure onefun is a function object!
+        assert isinstance(self.onefun, chebtec) or isinstance(self.onefun, trigtech), ''
 
     def __construct(self, *args, **kwargs):
         fun_type = kwargs.pop('type', 'cheb')
@@ -101,6 +110,9 @@ class Fun(np.lib.mixins.NDArrayOperatorsMixin):
     def seteps(self, value):
         self.onefun.eps = value
 
+    def flatten(self):
+        return self.coeffs.flatten(order='F')
+
     def __len__(self):
         return len(self.onefun)
 
@@ -108,8 +120,8 @@ class Fun(np.lib.mixins.NDArrayOperatorsMixin):
         return '%sfun column (%d pieces) on %s at %s points.' % (self.type, self.m, self.domain, len(self))
 
     def __repr__(self):
-        # TODO: COMPLETE ME
-        return f"{self.type}{self.__class__.__name__}(domain={self.domain}, mapping={self.mapping}, onefun={self.onefun})"
+        with np.printoptions(precision=16):
+            return f"{self.__class__.__name__}(op={repr(self.onefun.values)}, domain={repr(self.domain)}, type={repr(self.type)})"
 
     def __getattr__(self, name):
         if not hasattr(self.onefun, name):
@@ -201,6 +213,36 @@ class Fun(np.lib.mixins.NDArrayOperatorsMixin):
         fun = eval('{}.from_hdf5(hdf5_file[\'poly\'])'.format(ftype))
         return cls(onefun=fun, domain=domain)
 
+    @classmethod
+    def from_coeffs(cls, coeffs, n_funs, type='cheb', order='F', *args, **kwargs):
+        assert coeffs.size % n_funs == 0, 'Array must fit!'
+        m = coeffs.size // n_funs
+        return cls(coeffs=coeffs.reshape((m, n_funs), order=order),
+                   simplify=False, eps=np.finfo(float).eps,
+                   type=type, *args, **kwargs)
+
+    @classmethod
+    def from_values(cls, values, n_funs, type='cheb', *args, **kwargs):
+        assert values.size % n_funs == 0, 'Array must fit!'
+
+        if type == 'cheb':
+            nf = chebtec.from_values(values, simplify=False)
+        elif type == 'trig':
+            nf = trigtech.from_values(values, simplify=False)
+        else:
+            raise RuntimeError("Unknown function type {0:s}!".format(type))
+
+        return cls(onefun=nf, simplify=False, eps=np.finfo(float).eps,
+                   type=type, *args, **kwargs)
+
+    @classmethod
+    def from_ultra(cls, coeffs, n_funs, lam_in, type='cheb', order='F', *args, **kwargs):
+        assert coeffs.size % n_funs == 0, 'Array must fit!'
+        m = coeffs.size // n_funs
+        coeffs = np.asfortranarray(ultra2ultra(coeffs.reshape((m, n_funs), order=order), lam_in, 0))
+        return cls(coeffs=coeffs, simplify=False, eps=np.finfo(float).eps,
+                   type=type, *args, **kwargs)
+
 
 def implements(np_function):
     """ Register an __array_function__ implementation """
@@ -208,6 +250,11 @@ def implements(np_function):
         HANDLED_FUNCTIONS[np_function] = func
         return func
     return decorator
+
+
+@implements(np.argmax)
+def argmax(f):
+    return np.argmax(f.onefun)
 
 
 @implements(np.zeros_like)
@@ -234,30 +281,54 @@ def imag(f):
 
 def zeros(n, domain=[-1, 1], *args, **kwargs):
     """ Creates n functions equally zero. """
-    return Fun(coeffs=np.zeros((1, n), dtype=np.float, order='F'), domain=domain, simplify=False, *args, **kwargs)
+    return Fun(coeffs=np.zeros((1, n), dtype=float, order='F'), domain=domain, simplify=False, *args, **kwargs)
 
 
 def ones(n, domain=[-1, 1], *args, **kwargs):
     """ Creates n functions equally zero. """
-    return Fun(coeffs=np.ones((1, n), dtype=np.float, order='F'), domain=domain, simplify=False, *args, **kwargs)
+    return Fun(coeffs=np.ones((1, n), dtype=float, order='F'), domain=domain, simplify=False, *args, **kwargs)
 
 
-def asfun(obj, domain=[-1, 1], *args, **kwargs):
+def random(n, m, domain=[-1, 1], scale=1.0, *args, **kwargs):
+    """ Creates n functions equally zero. """
+    coeffs = scale * np.asfortranarray(1.0 - 2.0 * np.random.rand(n, m))
+    return Fun(coeffs=coeffs, domain=domain, simplify=False, *args, **kwargs)
+
+
+def random_decay(n, m, domain=[-1, 1], scale=1.0, *args, **kwargs):
+    """ Creates n functions equally zero. """
+    nn = (1 + np.arange(n))**2
+    coeffs = scale * (1.0 - 2.0 * np.asfortranarray(np.random.rand(n, m) / nn[:, None]))
+    return Fun(coeffs=coeffs, domain=domain, simplify=False, *args, **kwargs)
+
+
+def asfun(obj, *args, **kwargs):
     if isinstance(obj, Fun):
-        return obj
+        ftype = kwargs.pop('type', obj.type)
+
+        if obj.type == ftype:
+            return obj
+
+        return Fun(op=lambda x: obj(x), type=ftype, domain=obj.domain, *args, **kwargs)
+
     elif isinstance(obj, Number) or obj.size == 1:
-        return Fun(coeffs=np.reshape(np.asarray(obj, dtype=float), (1, 1), order='F'), domain=domain, *args, **kwargs)
+        return Fun(coeffs=np.reshape(np.asarray(obj, dtype=float), (1, 1), order='F'), *args, **kwargs)
+
     assert False, 'Unsupported type %s!' % type(obj)
 
 
 @implements(np.dot)
 def dot(input1, input2):
+    if not np.all(input1.domain == input2.domain):
+        raise ValueError("Domain mismatch %s != %s!" % (input1.domain, input2.domain))
+
     if isinstance(input1, Functional) and isinstance(input2, Fun):
         return np.dot(input1.coeffs, input2.coeffs)
     elif isinstance(input1, np.ndarray):
         return np.dot(input1, input2.values)
     elif isinstance(input1, Fun) and isinstance(input2, Fun):
-        return np.dot(input1, input2)
+        rescaleFactor = 0.5 * np.diff(input1.domain).item()
+        return np.dot(input1.onefun, input2.onefun) * rescaleFactor
     else:
         assert False, 'Don\'t know what to do about this!'
 
@@ -364,16 +435,29 @@ def norm2(f, p=2, weighted=False):
         return detail(f, p) if not weighted else detail_weighted(f, p)
 
 
-def h1norm(f, p=2, k=1, **kwargs):
+def wkpnorm(f, p=2, k=1, **kwargs):
     """ Compute the k, p Sobolev norm of f """
-    if p <= 0 or k < 0:
-        raise ValueError("The norm index must be positive!")
+    if k < 0:
+        raise ValueError("The derivative norm index must be positive!")
 
     norm = norm2(f, p=p, **kwargs)
     for i in range(1, k+1):
         f = np.diff(f)
         norm += norm2(f, p=p, **kwargs)
+
     return np.power(norm, 1./p)
+
+
+def h1norm(f, p=2, **kwargs):
+    return wkpnorm(f, p=p, k=1, **kwargs)
+
+
+def h2norm(f, p=2, **kwargs):
+    return wkpnorm(f, p=p, k=2, **kwargs)
+
+
+def normh(f):
+    return np.sqrt(np.dot(f, f))
 
 
 def sturm_norm(f, p=2, **kwargs):
@@ -396,6 +480,10 @@ def sturm_norm_alt(f, p=2, **kwargs):
     df_norm = norm(df, p=p, **kwargs)
     snorm = np.real(np.sign(f(f.domain[0]))) * norm(f, p=p) if df_norm > 1e-7 else norm(f, p=p)
     return snorm
+
+
+def normalize(u, *args, **kwargs):
+    return u / norm(u, *args, **kwargs)
 
 
 @implements(np.convolve)
@@ -467,14 +555,22 @@ def cumsum(f, *args, **kwargs):
 
 @implements(np.inner)
 def inner(f, g):
+    if not np.all(f.domain == g.domain):
+        raise ValueError("Domain mismatch %s != %s!" % (f.domain, g.domain))
+
     rescaleFactor = 0.5 * np.diff(f.domain)
     return np.inner(f.onefun, g.onefun) * rescaleFactor
 
 
 def innerw(f, g):
-    # UGH this is irritating!
+    if not np.all(f.domain == g.domain):
+        raise ValueError("Domain mismatch %s != %s!" % (f.domain, g.domain))
+
     rescaleFactor = 0.5 * np.diff(f.domain)
-    return cheb.innerw(f.onefun, g.onefun) * rescaleFactor
+    if f.istrig and g.istrig:
+        return trig.innerw(f.onefun, g.onefun) * rescaleFactor
+    else:
+        return cheb.innerw(f.onefun, g.onefun) * rescaleFactor
 
 
 @implements(np.roll)
@@ -485,6 +581,24 @@ def roll(f, a):
     return Fun(domain=f.domain, mapping=f.mapping, onefun=nf)
 
 
+@implements(np.hstack)
+def hstack(funs):
+    nf = np.hstack([f.onefun for f in funs])
+    return Fun(domain=funs[0].domain, mapping=funs[0].mapping, onefun=nf)
+
+
+@implements(np.copy)
+def copy(fun):
+    nf = np.copy(fun.onefun)
+    return Fun(domain=fun.domain, mapping=fun.mapping, onefun=nf)
+
+
+# @implements(np.hsplit)
+# def hsplit(fun):
+#     nfs = np.hsplit(fun.onefun)
+#     return [Fun(domain=fun.domain, mapping=fun.mapping, onefun=nf) for nf in nfs]
+
+
 def roots(f, *args, **kwargs):
     r = f.onefun.roots(*args, **kwargs)
     return f.mapping(r)
@@ -493,6 +607,24 @@ def roots(f, *args, **kwargs):
 def minandmax(f, *args, **kwargs):
     vals, pos = f.onefun.minandmax(*args, **kwargs)
     return vals, f.mapping(pos)
+
+
+def prolong(f, Nout):
+    nf = np.copy(f)
+    return nf.prolong(Nout)
+
+
+def plot(f, npts=1000, *args, **kwargs):
+    xs = np.linspace(*f.domain, npts)
+    fig, ax = plt.subplots(*args, **kwargs)
+    ax.plot(xs, f(xs))
+
+
+def plot_values(f, *args, **kwargs):
+    fig, ax = plt.subplots(*args, **kwargs)
+    n, m = f.shape
+    for i in range(m):
+        ax.scatter(f.x, f.values[:, i])
 
 
 def plotcoeffs_trig(f, loglog=False):
@@ -534,8 +666,11 @@ def plotcoeffs_cheb(f, loglog=False):
     return xx, absCoeffs
 
 
-def plotcoeffs(f, loglog=False):
+def plotcoeffs(f, loglog=False, *args, **kwargs):
     if f.istrig:
-        return plotcoeffs_trig(f, loglog=loglog)
+        k, c = plotcoeffs_trig(f, loglog=loglog)
     else:
-        assert False,''
+        k, c = plotcoeffs_cheb(f, loglog=loglog)
+
+    fig, ax = plt.subplots(*args, **kwargs)
+    ax.scatter(k, c)

@@ -19,7 +19,6 @@ class NonlinearVectorFunctionSource:
     """
     def __init__(self, src, ftype, domain, *args, **kwargs):
         self.function_names = kwargs.pop('functions', None)
-        # self.dummy = kwargs.pop('dummy', None)
 
         # Store the functions building the vector function.
         self.functions = []
@@ -52,7 +51,7 @@ class NonlinearVectorFunctionSource:
         cg.write(35 * '#')
 
         for func in self.functions:
-            func.emit(cg, self.name, self.function_names, self.ftype,
-                      self.domain, *args, **kwargs)
+            func.emit_detail(cg, self.name, self.function_names, self.ftype,
+                             self.domain, *args, **kwargs)
 
         return cg.end()

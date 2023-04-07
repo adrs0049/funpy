@@ -4,14 +4,29 @@
 import numpy as onp
 
 from fun import Fun
+from colloc.tools import execute_pycode
 from colloc.chebcolloc.chebcolloc2 import chebcolloc2
+from ac.gen import CodeGeneratorBackend
 
 # Import auto differentiation
 import jax.numpy as np
 
-class ChebOpConstraint(object):
+
+class ChebOpConstraint:
+    """
+        Implements a constraint for an cheb operator.
+    """
     def __init__(self, *args, **kwargs):
+        """
+            op: The constraint: a callable.
+            ns: A local namespace: No longer used.
+            domain: [x0, x1]. The domain on which parent operator is defined ->
+                required for constraint collocation.
+
+            values: Equal value of the constraint. TODO: drop this!
+        """
         self.functional = kwargs.get('op', None)  # applied to the variable to get values
+        self.ns = kwargs.pop('ns', None)
         self.values     = onp.atleast_1d(kwargs.get('values', 0.0))  # constraint on the result of the functional
         # TODO: see whether we can get rid of this silly domain requirement
         self.domain = kwargs.pop('domain', [-1, 1])
@@ -20,6 +35,9 @@ class ChebOpConstraint(object):
     def append(self, func, value=0):
         self.functional = onp.vstack((self.functional, func))
         self.values = onp.vstack((self.values, value))
+
+    def disc(self, u):
+        return chebcolloc2(values=u, domain=self.domain)
 
     """ Number of constraints in object """
     def __len__(self):

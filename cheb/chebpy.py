@@ -11,16 +11,33 @@ from numbers import Number
 from numpy.core.multiarray import normalize_axis_index
 from scipy.fftpack import ifft, fft, dct, idct, idst, ifftshift
 
+try:
+    # Import compiled components -> Make sure this happens before all imports below!
+    from cheb.refine import RefineBase, Refine, RefineCompose1, RefineCompose2, FunctionContainer
+    from cheb.detail import polyfit, polyval, clenshaw, roots
+    from cheb.detail import standardChop, prolong, simplify_coeffs, happiness_check
+
+except ImportError:
+    from cheb.build_cheb import build_cheb_module
+    build_cheb_module()
+
+    # Try the imports again
+    try:
+        from cheb.refine import RefineBase, Refine, RefineCompose1, RefineCompose2, FunctionContainer
+        from cheb.detail import polyfit, polyval, clenshaw, roots
+        from cheb.detail import standardChop, prolong, simplify_coeffs, happiness_check
+    except:
+        raise
+
+
 # Local imports
 from support.cached_property import lazy_property
 from cheb.chebpts import chebpts_type2, chebpts_type2_compute, barymat, quadwts
-from cheb.refine import RefineBase, Refine, RefineCompose1, RefineCompose2, FunctionContainer
-from cheb.detail import polyfit, polyval, clenshaw, roots
-from cheb.detail import standardChop, prolong, simplify_coeffs, happiness_check
 from cheb.diff import computeDerCoeffs
 import cheb.qr
 from cheb.minmax import minmaxCol
 
+# Directory for numpy implementation of functions
 HANDLED_FUNCTIONS = {}
 
 
@@ -35,7 +52,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
 
         # add varying interval support!
         self.hscale = kwargs.pop('hscale', 1)
-        self.maxLength = kwargs.pop('maxLength', 2**14)
+        self.maxLength = kwargs.pop('maxLength', 1 + 2**14)
         self.ishappy = kwargs.pop('ishappy', False)
 
         if op is not None:
@@ -43,7 +60,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
 
             # Treat numpy arrays differently from things we can call!
             if isinstance(op, np.ndarray):
-                if len(op.shape)==1:
+                if len(op.shape) == 1:
                     op = np.expand_dims(op, axis=1)
                 self.coeffs = polyfit(op)
             else:
@@ -59,6 +76,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
                     self.populate(refine)
 
         # Update the happiness status
+        assert self.coeffs.size > 0, 'Something went wrong during chebfun construction!'
         if not self.ishappy:
             self.ishappy, _ = self.happy()
 
@@ -80,7 +98,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
     @classmethod
     def from_values(cls, values, *args, **kwargs):
         coeffs = polyfit(values)
-        return cls(coeffs=coeffs, *args, **kwargs)
+        return cls(coeffs=coeffs, ishappy=True, *args, **kwargs)
 
     def __deepcopy__(self, memo):
         id_self = id(self)
@@ -155,7 +173,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
     @lazy_property
     def vscale(self):
         """ Estimates the vertical scale of a function """
-        if self.coeffs is None:
+        if self.coeffs is None or self.coeffs.size == 0:
             return 0
         elif self.coeffs.shape[0] == 1:
             return np.abs(self.coeffs[0, :])
@@ -216,12 +234,23 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
 
     """ Useful to select a column of function """
     def __getitem__(self, idx):
-        #assert idx >= 0 and idx < self.m, 'Index %d out of range [0, %d].' % (idx, self.m-1)
-        if idx < 0 or idx >= self.m:
-            raise IndexError
-        return chebtec(coeffs=self.coeffs[:, None, idx], eps=self.eps,
-                       maxLength=self.maxLength, simplify=False,
-                       ishappy=self.ishappy)
+        if isinstance(idx, slice):
+            if idx.start < 0 or idx.stop > self.m:
+                raise IndexError("The index slice({0:d}, {1:d}) is out of range ({2:d})!".format(idx.start, idx.stop, self.m))
+
+            return chebtec(coeffs=self.coeffs[:, idx], eps=self.eps,
+                           maxLength=self.maxLength, simplify=False,
+                           ishappy=self.ishappy)
+
+        elif isinstance(idx, int):
+            if idx < 0 or idx >= self.m:
+                raise IndexError("The index {0:d} is out of range ({1:d})!".format(idx, self.m))
+
+            return chebtec(coeffs=self.coeffs[:, None, idx], eps=self.eps,
+                           maxLength=self.maxLength, simplify=False,
+                           ishappy=self.ishappy)
+        else:
+            raise TypeError("Invalid argument type!")
 
     """ This is the number of chebyshev polynomials stored in this class """
     @property
@@ -437,9 +466,14 @@ def implements(np_function):
     return decorator
 
 
+@implements(np.argmax)
+def argmax(f):
+    return np.argmax(f.coeffs)
+
+
 @implements(np.real)
 def real(cheb):
-    """ Returns real part of a trigtech """
+    """ Returns real part of a chebtec """
     return chebtec(coeffs=np.real(cheb.coeffs), simplify=False,
                    ishappy=cheb.ishappy, eps=cheb.eps,
                    hscale=cheb.hscale, maxLength=cheb.maxLength)
@@ -447,7 +481,7 @@ def real(cheb):
 
 @implements(np.imag)
 def imag(cheb):
-    """ Returns real part of a trigtech """
+    """ Returns real part of a chebtec """
     return chebtec(coeffs=np.imag(cheb.coeffs), simplify=False,
                    ishappy=cheb.ishappy, eps=cheb.eps,
                    hscale=cheb.hscale, maxLength=cheb.maxLength)
@@ -580,9 +614,9 @@ def inner(cheb1, cheb2, weighted=False):
     out = np.matmul(fvalues.T * w, gvalues)
 
     # force non-negative output if the inputs are equal
-    # if isequal(f, g):
-    # dout = diag(diag(out))
-    # out = out - dout + abs(dout)
+    if cheb1 == cheb2:
+        dout = np.diag(np.diag(out))
+        out = out - dout + np.abs(dout)
 
     return out.squeeze()
 
@@ -614,4 +648,42 @@ def innerw(cheb1, cheb2):
 
 @implements(np.dot)
 def dot(cheb1, cheb2):
-    return innerw(cheb1, cheb2)
+    rval = np.inner(cheb1, cheb2)
+    return np.sum(np.diagonal(rval)).item() if rval.size > 1 else rval
+
+
+@implements(np.hstack)
+def hstack(chebs):
+    n = np.max([len(cheb) for cheb in chebs])
+    m = np.sum([cheb.size for cheb in chebs])
+
+    # Create new coefficient storage
+    coeffs = np.zeros((n, m), dtype=float, order='F')
+
+    i = 0
+    for cheb in chebs:
+        sz = cheb.size
+        coeffs[:, i:i+sz] = np.asarray(prolong(cheb.coeffs, n), order='F')
+        i += sz
+
+    maxLength = max([cheb.maxLength for cheb in chebs])
+    eps       = max([cheb.eps for cheb in chebs])
+    hscale    = max([cheb.hscale for cheb in chebs])   # TODO this is probably not correct!
+    ishappy   = all([cheb.ishappy for cheb in chebs])
+
+    return chebtec(coeffs=coeffs, ishappy=ishappy, simplify=False,
+                   eps=eps, hscale=hscale,
+                   maxLength=maxLength)
+
+
+@implements(np.copy)
+def copy(cheb):
+    return chebtec(coeffs=np.copy(cheb.coeffs), ishappy=cheb.ishappy,
+                   simplify=False, eps=cheb.eps, hscale=cheb.hscale,
+                   maxLength=cheb.maxLength)
+
+
+# @implements(np.hsplit)
+# def hsplit(cheb):
+#     return [chebtec(coeffs=cheb.coeffs[:, i], ishappy=cheb.ishappy,
+#                     simplify=True, eps=cheb.eps) for i in range(cheb.size)]

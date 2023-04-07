@@ -18,10 +18,11 @@ class GeneralizedEigenvalueOp(LinearOperator):
         differential operators discretized using ultraS. This is required since we both
         have constraints in the discretized matrix + a change of basis.
     """
-    def __init__(self, colloc, dtype=None, *args, **kwargs):
-        self.colloc = colloc
+    def __init__(self, projection, dtype=None, *args, **kwargs):
+        self.proj = projection
+        self.numConstraints = self.proj.shape[1] - self.proj.shape[0]
 
-        self.shape = self.colloc.S0.shape
+        self.shape = (self.proj.shape[1], self.proj.shape[1])
         self.dtype = np.dtype(dtype)
         self.explicit = False
 
@@ -38,18 +39,18 @@ class GeneralizedEigenvalueOp(LinearOperator):
             A x = λ B x
 
         """
-        arr = self.colloc.projection.dot(x)
-        if len(self.colloc.constraints) > 0:
-            return np.hstack((np.zeros(len(self.colloc.constraints)), arr))[self.colloc.idenRows]
+        arr = self.proj.dot(x)
+        if self.numConstraints:
+            return np.hstack((np.zeros(self.numConstraints), arr))
         else:  # No constraints!
             return arr
 
     def _rmatvec(self, x):
-        assert False, 'Not implemented!'
+        return NotImplemented
 
 
-def eigs(op, f=None, tol=1e-12, n_max=2048, ignore_exception=True,
-         sort='lhp', *args, **kwargs):
+def eigs(op, f=None, ignore_exception=True, sort='lhp', *args, **kwargs):
+    # TODO: ideally we would use ARPACK here.
     # see if operator has tol set
     tol = op.eps
     if f is not None:
@@ -59,33 +60,28 @@ def eigs(op, f=None, tol=1e-12, n_max=2048, ignore_exception=True,
         f = zeros(op.neqn, domain=op.domain)
 
     # Use a QZ decomposition to compute the generalized eigenvalues
-    while True:
-        try:
-            # Get the required matrices!
-            #print('f = ', f.shape)
-            colloc = op.discretize(f, transform=False, *args, **kwargs)
-            M, P, S = colloc.matrix()
-            B = GeneralizedEigenvalueOp(colloc)
+    # Get the required matrices!
+    colloc = op.discretize(f, *args, **kwargs)
+    M, _, P = colloc.matrix()
+    B = GeneralizedEigenvalueOp(P)
 
-            Md = M.todense()
-            Bd = B.todense()
+    # Pass to dense matrices
+    Md = M.todense()
+    Bd = B.todense()
 
-            AA, BB, alpha, beta, Q, Z = LA.ordqz(Md, Bd, sort=sort,
-                                                 overwrite_a=True, overwrite_b=True)
+    # Some default options
+    overwrite_a = kwargs.pop('overwrite_a', True)
+    overwrite_b = kwargs.pop('overwrite_b', True)
+    output = kwargs.pop('output', 'complex')
 
-        except ValueError as e:
-            if ignore_exception:
-                print(e)
-                op.n_disc = 2 * op.n_disc
-            else:
-                raise e
+    try:
+        AA, BB, alpha, beta, Q, Z = LA.ordqz(Md, Bd, sort=sort, output=output,
+                                             overwrite_a=overwrite_a,
+                                             overwrite_b=overwrite_b)
 
-            if op.n_disc >= n_max:
-                raise RuntimeError('Error requested discretization is larger than allowed!')
-                break
+        mask = np.where(np.hypot(np.real(beta), np.imag(beta)) > tol)
+        return True, (alpha[mask] / beta[mask])
 
-        else:
-            break
-
-    mask = np.where(np.hypot(np.real(beta), np.imag(beta)) > tol)
-    return alpha[mask] / beta[mask]
+    except ValueError as e:
+        print('Eigenvalue computation failed for !')
+        return False, np.asarray([0.0])

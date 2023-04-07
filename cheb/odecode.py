@@ -2,7 +2,11 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import sympy as syp
-from sympy.printing.pycode import SciPyPrinter, NumPyPrinter
+
+try:
+    from sympy.printing.numpy import SciPyPrinter, NumPyPrinter
+except ImportError:
+    from sympy.printing.pycode import SciPyPrinter, NumPyPrinter
 
 
 class OdePyPrinter(SciPyPrinter):

@@ -1,21 +1,17 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import numpy as np
-import h5py as h5
-import warnings
 from enum import IntEnum
 from copy import deepcopy
 from numbers import Number
 
-from fun import Fun, h1norm, norm2, sturm_norm, sturm_norm_alt
-from fun import minandmax
+import numpy as np
 
 import fun as fp
+from fun import norm2, minandmax
+
 from states.namespace import Namespace
-from support.tools import orientation_y
 from states.parameter import Parameter
-from cheb.chebpts import quadwts
 from support.cached_property import lazy_property
 
 
@@ -166,11 +162,11 @@ class BaseState(np.lib.mixins.NDArrayOperatorsMixin):
             return np.real(np.sum(np.diff(vals, axis=0)))
         return 0.0
 
-    def happy(self):
+    def happy(self, *args, **kwargs):
         ishappy = True
         cutoff = 0
         for func in self.funcs:
-            _ishappy, ncutoff = func.happy()
+            _ishappy, ncutoff = func.happy(*args, **kwargs)
             cutoff = max(ncutoff, cutoff)
             ishappy &= _ishappy
         return ishappy, cutoff
@@ -362,11 +358,10 @@ def dot(state1, state2):
     inner = 0.0
     n, m = state1.fshape
     for i in range(n):
-        ip = state1.weights[i] * np.inner(state1.funcs[i], state2.funcs[i])
-        inner += np.sum(ip.diagonal()) if ip.ndim == 2 else np.sum(ip)
+        inner += state1.weights[i] * np.dot(state1.funcs[i], state2.funcs[i])
 
     for i in range(m):
-        inner += state1.weights[i+n] * state1.reals[i] * state2.reals[i]
+        inner += state1.weights[i+n] * np.dot(state1.reals[i], state2.reals[i])
 
     return inner
 
@@ -430,6 +425,21 @@ def imag(state):
 
     for i in range(m):
         nfuncs[i] = np.imag(state.funcs[i])
+
+    return type(state)(reals=nreals, funcs=nfuncs, ns=state.ns)
+
+
+@implements(np.conj)
+def conj(state):
+    n, m = state.fshape
+    nreals = np.empty_like(state.reals)
+    nfuncs = np.empty_like(state.funcs)
+
+    for i in range(n):
+        nreals[i] = np.conj(state.reals[i])
+
+    for i in range(m):
+        nfuncs[i] = np.conj(state.funcs[i])
 
     return type(state)(reals=nreals, funcs=nfuncs, ns=state.ns)
 

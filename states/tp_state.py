@@ -5,7 +5,8 @@ import numpy as np
 from copy import deepcopy
 from numbers import Number
 
-from fun import h1norm, norm, norm2, sturm_norm, sturm_norm_alt, sturm_norm
+from fun import Fun
+from fun import h1norm, norm, norm2, sturm_norm, sturm_norm_alt
 from states.base_state import BaseState
 from states.parameter import Parameter
 from support.cached_property import lazy_property
@@ -26,25 +27,54 @@ class TwoParameterState(BaseState):
         super().__init__(signature=signature, *args, **kwargs)
 
         # Setup functions - TODO implement np.equal for state!
-        if p1 is not None and p2 is not None and u is not None and phi is not None:
+        if p1 is not None and p2 is not None and u is not None:
             self.funcs[0] = deepcopy(u)
-            self.funcs[1] = deepcopy(phi)
+            self.funcs[1] = np.zeros_like(u)
             self.reals[0] = deepcopy(p1)
             self.reals[1] = deepcopy(p2)
+
+        if phi is not None:
+            self.funcs[1] = deepcopy(phi)
 
             # make sure both functions have the same size!
             N = max(self.funcs[0].n, self.funcs[1].n)
             self.funcs[0].prolong(N)
             self.funcs[1].prolong(N)
 
-        assert self.reals[0].name != self.reals[1].name, 'Parameters must have different names!'
+        if self.reals[0].name == self.reals[1].name:
+            raise RuntimeError(f"Parameters {self.reals[0].name} and {self.reals[1].name} must be different!")
 
         # Sync namespace
         self.sync_ns()
 
+    @classmethod
+    def from_coeffs(cls, coeffs, pname1, pname2, n_funs, *args, **kwargs):
+        assert (coeffs.size - 2) % n_funs == 0, 'Coeffs does not have correct size!'
+        soln = Fun.from_coeffs(coeffs[:-2], n_funs, *args, **kwargs)
+        ap1 = Parameter(**{pname1: np.real(coeffs[-2].item())})
+        # The last parameter is the current continuation variable.
+        ap2 = Parameter(**{pname2: np.real(coeffs[-1].item())})
+        return cls(p1=ap1, p2=ap2, u=np.real(soln))
+
+    @classmethod
+    def from_fun(cls, fun, pname1, pvalue1, pname2, pvalue2, *args, **kwargs):
+        ap1 = Parameter(**{pname1: float(pvalue1)})
+        ap2 = Parameter(**{pname2: float(pvalue2)})
+        return cls(p1=ap1, p2=ap2, u=np.real(fun))
+
+    @classmethod
+    def from_state(cls, other, pname1, pvalue1, pname2, pvalue2, *args, **kwargs):
+        ap1 = Parameter(**{pname1: float(pvalue1)})
+        ap2 = Parameter(**{pname2: float(pvalue2)})
+        pars = {n: v for n, v in other.items()}
+        return cls(p1=ap1, p2=ap2, u=other.u, *args, **pars, **kwargs)
+
     def __len__(self):
         # TODO?
         return self.u.n
+
+    def flatten(self):
+        return np.hstack((self.funcs[0].flatten(), self.reals[0].value, self.reals[1].value))
 
     @lazy_property
     def rank(self):

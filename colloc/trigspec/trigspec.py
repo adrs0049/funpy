@@ -6,7 +6,7 @@ import scipy.linalg as LA
 import scipy.sparse as sps
 import scipy.sparse.linalg as LAS
 from scipy.sparse import eye, csr_matrix
-from sparse.csr import eliminate_zeros_csr
+from sparse.csr import eliminate_zeros
 
 from fun import Fun
 from fun import norm
@@ -98,6 +98,11 @@ class trigspec(coeffsDiscretization):
             if not info[j]: continue
 
             # form the D^(j - 1) term
+            #M = self.mult(coeff[j])
+            #D = self.diff(j)
+            #print('coeff[%d] = ' % j, coeff[j])
+            #print('M[%d] = ' % j, M.shape)
+            #print('D[%d] = ' % j, D.shape)
             L += self.mult(coeff[j]) * self.diff(j)
 
         # check if we have an integral term defined!
@@ -115,7 +120,7 @@ class trigspec(coeffsDiscretization):
             L += self.mult(coeff[j]) * self.diff(j) * self.aggregation()
 
         # must remove almost zero elements now
-        L = eliminate_zeros_csr(L)
+        L = eliminate_zeros(L)
 
         # create the conversion matrix as well
         S = csr_matrix(L.shape)
@@ -143,19 +148,41 @@ class trigspec(coeffsDiscretization):
 
         return P
 
-    def rhs(self, u=None):
-        """ Generate the discretization of the right hand side """
-        # If u is not None -> update the source first!
-        if u is not None:
-            assert np.all(self.domain == u.domain), 'Domain mismatch %s != %s!' % (self.domain, u.domain)
-            self.source.update_partial(u)
+    # def rhs(self, u=None):
+    #     """ Generate the discretization of the right hand side """
+    #     # If u is not None -> update the source first!
+    #     if u is not None:
+    #         assert np.all(self.domain == u.domain), 'Domain mismatch %s != %s!' % (self.domain, u.domain)
+    #         self.source.update_partial(u)
 
-        # Trivial for trig collocations
-        return self.source.rhs.values.flatten(order='F')
+    #     # Trivial for trig collocations
+    #     return self.source.rhs.values.flatten(order='F')
+    # def projection(self):
+    #     n = self.dimension
+    #     return eye(np.sum(n)).tocsr()
 
-    def projection(self):
-        n = self.dimension
-        return eye(np.sum(n)).tocsr()
+    def project_vector(self, vector, basis=True, cts=False):
+        """
+        Applies the projection and change of basis to a vector.
+        For instance the vector representing the derivative of the nonlinear
+        function with respect to a model parameter.
 
-    def diff_a(self, u):
-        return self.source.pDer(u).squeeze()
+        The rows corresponding to the boundary conditions are replaced by zero.
+
+        Arguments:
+
+            vector: The vector that will the projected.
+            basis:  When True also apply the basis transformation.
+            cts:    Append the constraints residuals to the top. Otherwise set to zero.
+
+        """
+        if isinstance(vector, Fun):
+            vector = vector.prolong(self.source.dshape[0]).flatten()
+
+        if basis:
+            arr = np.atleast_1d(self.projection._matvec(vector))
+        else:
+            arr = np.atleast_1d(self.proj._matvec(vector))
+
+        carr = self.source.cts_res.flatten() if cts else np.zeros(self.numConstraints)
+        return np.concatenate((carr, arr))

@@ -1,8 +1,9 @@
 Funpy
 =========
 
-Extends the NumPy API to work with functions. The code and its structure are inspired by 
-[Chebfun](https://www.chebfun.org/).
+Extends the NumPy API to work with functions. The code and its structure are inspired 
+by and translated from [Chebfun](https://www.chebfun.org/), and Approximation Theory and
+Approximation Practice.
 
 So far this has been a learning project, and a project used to teach and do a little bit of
 research. Both the Chebyshev and Fourier spectral collocation methods work well enough to carry out
@@ -20,8 +21,7 @@ Ideally all functions of the NumPy API should be appropriately implemented.
 In addition, it is highly desirable to implement solid collocation support to
 solve integro-differential equations.
 
-Future: Extensions to 2D and 3D.
-
+Future: Clean up all the mess? Fix the many API issues that exist. Extensions to 2D and 3D?
 
 Installation
 --------
@@ -49,9 +49,8 @@ ToDo
 
 1. Write a proper setup.py.
 2. Better unit testing.
-3. **Urgent:** Change the core memory layout to match numpy's standard.
-4. Object constructors are a mess, make more use of classmethods!
-5. Fix module import, and have all the usual package things good to go i.e.\
+3. Object constructors are a mess, make more use of classmethods!
+4. Fix module import, and have all the usual package things good to go i.e.\
    (`__doc__` strings) etc. Also make importing work in expected ways i.e.\
 
    ```
@@ -59,13 +58,12 @@ ToDo
    fun = fp.Fun(op=lambda x: x)
    ```
 
-6. Remove dependency to jax, it's rather irritating.
-7. Deal with boundary conditions of operators not being savable!
-8. Improve `sympy` code, in particular fix the "compilation" of non-local equations.
-9. Complete continuation code in this repository.
-10. Clean-up the many bolted on features in the main operator class, collocators, and nonlinear solvers.
-11. Lazy evaluations of arithmetic operations?
-12. Lots of other things need fixing and improving!
+5. Remove dependency to jax, it's rather irritating.
+6. Improve `sympy` code, in particular fix the "compilation" of non-local equations.
+7. Complete continuation code in this repository.
+8. Clean-up the many bolted on features in the main operator class, collocators, and nonlinear solvers.
+9. Lazy evaluations of arithmetic operations?
+10. Lots of other things need fixing and improving!
 
 
 Functions
@@ -117,6 +115,7 @@ op.eqn = ['epsilon^2 * diff(u, x, 2) + (b + gamma * u^m / (1 + u^m)) * v - I * u
           'D *         diff(v, x, 2) - (b + gamma * u^m / (1 + u^m)) * v + I * u']
 
 # Boundary conditions
+# FIXME this is no longer the case -> Also interpreted by sympy.
 op.bcs = [lambda u, v: np.diff(u)(0), lambda u, v: np.diff(u)(1),
           lambda u, v: np.diff(v)(0), lambda u, v: np.diff(v)(1)]
 
@@ -129,7 +128,7 @@ op.cts = ['0.5 * (K - int(u) - int(v))',
 
 1. The strings in `eqn` are interpreted using `sympy`, and thus must be valid
 sympy expressions. For this reason parameters and function names
-must be given to ChebOp upon construction (Future: Can we guess this somehow?).
+must be given to ChebOp upon construction (Future: Can we infer this somehow?).
 
 2. The boundary conditions must be valid `funpy` operations. They are
    transformed into usable for by using the automatic differentiation framework

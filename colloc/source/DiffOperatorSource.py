@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import itertools
-from sympy import Derivative
+from sympy import Derivative, Function
 
 from cheb.cbcode import cpcode
 
@@ -56,14 +56,17 @@ class DiffOperatorSource:
 
         # Depending on the type of expression we need to write the numpy code differently!
         real = self.coeffs.is_real if self.coeffs.is_real is not None else False
+        constant = self.coeffs.is_constant()
+        contains_functions = len(self.coeffs.atoms(Function)) != 0
+
         if self.coeffs.is_zero:
             cg.write('return zeros(1, domain=[{0:.16f}, {1:.16f}], type=\'{2:s}\')'.\
                      format(domain[0], domain[1], ftype))
             self.posInfo = False
-        elif self.coeffs.is_constant() or real:
-            cg.write('return {0} * ones(1, domain=[{1:.16f}, {2:.16f}], type=\'{3:s}\')'.\
+        elif constant is not None and (constant or real) and not contains_functions:
+            cg.write('return ({0}) * ones(1, domain=[{1:.16f}, {2:.16f}], type=\'{3:s}\')'.\
                      format(ccode, domain[0], domain[1], ftype))
         else:
-            cg.write('return {0}'.format(ccode))
+            cg.write('return asfun({0}, type=\'{1:s}\')'.format(ccode, ftype))
 
         cg.dedent()

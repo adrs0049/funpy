@@ -11,10 +11,10 @@ cimport cython
 from numbers import Number
 from scipy.fft import ifft, fft, irfft, rfft
 
-from cheb.detail import polyfit, polyval
 from cheb.chebpy import chebtec
 from trig.trigtech import trigtech
-from cheb.detail import prolong, simplify_coeffs
+
+cimport detail
 
 
 def negative(x, **kwargs):
@@ -41,7 +41,7 @@ def power(x1, x2, **kwargs):
         # Do nothing just return the function
         if x2 == 1.0:
             return x1
-        return chebtec(op=lambda x: np.power(x1(x), x2), minSamples=2 * x1.n, eps=x1.eps)
+        return chebtec(op=lambda x: np.float_power(x1(x), x2), minSamples=x1.n, eps=x1.eps)
     else:
         return NotImplemented
 
@@ -95,9 +95,9 @@ def add(x1, x2, **kwargs):
             c = np.copy(x1.coeffs, order='F')
             oc = x2.coeffs
             if nf > no:
-                oc = prolong(oc, nf)
+                oc = detail.prolong(oc, nf)
             elif nf < no:
-                c = prolong(c, no)
+                c = detail.prolong(c, no)
 
         # update values and coefficients
         c += oc
@@ -243,7 +243,7 @@ def multiply(x1, x2, **kwargs):
         # do multiplication in coefficient space
         eps = max(x1.eps, x2.eps)
         c, pos = coeff_times_main(x1.coeffs, x2.coeffs)
-        c = simplify_coeffs(c, eps=eps)
+        c = detail.simplify_coeffs(c, eps=eps)
 
         # Simply copy the happy status
         ishappy = x1.ishappy and x2.ishappy
@@ -251,8 +251,8 @@ def multiply(x1, x2, **kwargs):
         if pos:
             # We know that the product should be positive. However,
             # simplify may have destroyed that property so we enforce it.
-            v = polyval(c)
-            c = polyfit(np.abs(v))
+            v = detail.polyval(c, 1)
+            c = detail.polyfit(np.abs(v), 1)
             c = np.asarray(c, order='F')
     else:
         return NotImplemented

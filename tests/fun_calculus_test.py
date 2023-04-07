@@ -3,7 +3,7 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 from numpy.testing import assert_, assert_raises, assert_almost_equal
-from fun import Fun, norm, norm2, h1norm
+from fun import Fun, norm, norm2, h1norm, wkpnorm
 
 
 class TestFunCalculus:
@@ -99,7 +99,7 @@ class TestFunCalculus:
         f = Fun(op=lambda x: np.sin(2 * np.pi * x), type='cheb')
         assert_almost_equal(h1norm(f), (1 + 4. * np.pi**2)**0.5)
         assert_almost_equal(h1norm(f, p=2), (1 + 4. * np.pi**2)**0.5)
-        assert_almost_equal(h1norm(f, p=2, k=0), 1)
-        assert_almost_equal(h1norm(f, p=2, k=1), (1 + 4. * np.pi**2)**0.5)
-        assert_almost_equal(h1norm(f, p=2, k=2), (1 + 4. * np.pi**2 + 16 * np.pi**4)**0.5)
-        assert_almost_equal(h1norm(f, p=2, k=3), (1 + 4. * np.pi**2 + 16 * np.pi**4 + 64*np.pi**6)**0.5)
+        assert_almost_equal(wkpnorm(f, p=2, k=0), 1)
+        assert_almost_equal(wkpnorm(f, p=2, k=1), (1 + 4. * np.pi**2)**0.5)
+        assert_almost_equal(wkpnorm(f, p=2, k=2), (1 + 4. * np.pi**2 + 16 * np.pi**4)**0.5)
+        assert_almost_equal(wkpnorm(f, p=2, k=3), (1 + 4. * np.pi**2 + 16 * np.pi**4 + 64*np.pi**6)**0.5)

@@ -19,6 +19,10 @@ class Parameter(np.lib.mixins.NDArrayOperatorsMixin):
             setattr(self, 'name', key)
             setattr(self, 'value', value)
 
+    @classmethod
+    def from_real(cls, name, value):
+        return cls(**{name: value})
+
     def __deepcopy__(self, memo):
         id_self = id(self)
         _copy = memo.get(id_self)
@@ -111,6 +115,11 @@ def real(p):
 @implements(np.imag)
 def imag(p):
     return type(p)(**{p.name: np.imag(p.value)})
+
+
+@implements(np.conj)
+def conj(p):
+    return type(p)(**{p.name: np.conj(p.value)})
 
 
 @implements(np.sum)

@@ -5,14 +5,16 @@ import numpy as onp
 import jax.numpy as np
 import scipy.linalg as LA
 from scipy.sparse import eye, csr_matrix, bmat
-from sparse.csr import delete_rows_csr, eliminate_zeros_csr
+from sparse.csr import delete_rows_csr
 
 from colloc.valsDiscretization import valsDiscretization
 from colloc.chebcolloc.baryDiffMat import diffmat
 from cheb.chebpy import chebtec
 from cheb.chebpts import chebpts_type1, chebpts_type2, barymat
 
+
 class chebcolloc2(valsDiscretization):
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

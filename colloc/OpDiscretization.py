@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import itertools
+import warnings
 import numpy as np
 import scipy as sp
 import scipy.sparse as sps
@@ -9,7 +10,14 @@ import scipy.linalg as LA
 import scipy.sparse.linalg as LAS
 from scipy.sparse import eye, bmat
 
+try:
+    from scipy.sparse import csr_array, csc_array
+except ImportError:
+    from scipy.sparse import csr_matrix as csr_array
+    from scipy.sparse import csc_matrix as csc_array
+
 from sparse.csr import flip_rows
+from sparse.csc import flip_cols
 
 from fun import Fun
 from mapping import Mapping
@@ -19,7 +27,7 @@ from colloc.ultraS.matrices import blockmat
 from colloc.projection import RectangularProjection
 
 
-class OpDiscretization(object):
+class OpDiscretization:
     """ Converts an infinite dimensional operator to discrete form """
     def __init__(self, source=None, *args, **kwargs):
         self.dimension = np.atleast_1d(kwargs.get('dimension', 1))
@@ -52,7 +60,7 @@ class OpDiscretization(object):
     @property
     def shape(self):
         # TODO: temp for the moment!
-        return (self.dimension.squeeze(), self.source.quasiOp.shape[0])
+        return (self.dimension.squeeze().item(), self.source.quasiOp.shape[0])
 
     def getDimAdjust(self):
         """ size of the input space relative to disc.dicretization """
@@ -61,203 +69,83 @@ class OpDiscretization(object):
     def getProjOrder(self):
         """ projection order for the rectangualization """
         return self.source.getProjOrder()
-        # return np.asarray([self.numConstraints])
-
-    def bc_rows(self, B):
-        # TODO TEMP: this should all be worked out in the source!
-        m = self.shape[1]
-        bc_off = B.shape[0]
-        bc_per = B.shape[0] // m
-        dim = self.dimension - bc_per
-        return np.hstack([np.hstack([eqn*bc_per + np.arange(bc_per), bc_off + eqn * dim + np.arange(dim)]) for eqn in range(m)]), bc_per
-
-    def precond(self, *args, **kwargs):
-        pass
 
     def matrix(self, *args, **kwargs):
         """ Creates the discretized approximation of the linear or nonlinear
         operator. Currently this function uses rectangularization to
         impose functional constraints on solutions.
         """
-        M, Pc, self.S0 = self.instantiate(self.source.quasiOp, *args, **kwargs)
+        M, Pc, S0 = self.instantiate(self.source.quasiOp, *args, **kwargs)
+        PM, P, PS = self.reduce(M, S0)
 
-        # then call reduce to create a rectangular matrix
-        PA, P, PS = self.reduce(M, self.S0)
+        # If we have defined constraints add them!
+        if self.numConstraints > 0:
+            B = self.getConstraints(PM.shape[1])
 
-        # Get the constraints
-        cols = PA.shape[1]
-        B = self.getConstraints(cols)
-
-        # Re-order such that the leading order derivative term is situated on
-        # the main matrix diagonal -> Important for easy pre-conditioner
-        # construction.
-        m = self.shape[1]
-
-        # Assemble the preconditioner - and reduce just like the full matrix
-        PC = P * sps.bmat(Pc)
-
-        # If we have boundary conditions change
-        if B is not None:
-            self.idenRows, bc_per = self.bc_rows(B)
+            # Check that B-rows are not zero
+            if np.all(np.sum(np.abs(B), axis=1) == 0.0):
+                warnings.warn('OpDiscretization: Boundary condition rows have zero l1 norm!\nMost likely the resulting matrix will be singular! Double check your boundary conditions!')
 
             # Append the functional constraints to the constructed linear operators
-            M = sps.vstack((B, PA))
-            # print('M = ', M.shape)
-            # print('idenRows = ', self.idenRows)
-            M = flip_rows(M, self.idenRows)
-
-            PC = sps.vstack([eye(m=bc_per, n=B.shape[1], k=eqn * int(self.dimension))
-                             for eqn in range(m)] + [PC])
-            PC = flip_rows(PC, self.idenRows).diagonal()
+            B  = csr_array(B)
+            M  = sps.vstack((B, PM))
         else:
-            # in the case of trig collocation no boundary conditions required.
-            M = PA
+            M = PM
 
-            # set this to the trivial case
-            self.idenRows = np.arange(m * self.dimension)
-
-            # In this case it's very simple
-            PC = PC.diagonal()
-
-        # TODO: make this somehow toggleable!
-        # print('PA = ')
-        # print(PA.todense())
-        # print('Stacked!')
-        # print(M.todense())
-        # print('det(M) = ', LA.det(M.todense()))
-        # print('rank(M) = ', np.linalg.matrix_rank(M.todense()))
-
-        # Compute the pre-conditioner!
-        if np.any((np.abs(np.real(PC)) < 1e-8) & (np.abs(np.imag(PC)) < 1e-8)):
-            # The pre-conditioner has a zero diagonal!
-            self.Pc = None
-        else:
-            self.Pc = sps.spdiags(1. / PC, 0, PC.size, PC.size)
-
-        # Store the basic basis conversion matrix
-        self.S0 = sps.bmat(self.S0)
-
-        # store the projection matrix
-        self.P = P
-
-        # create the main projection operator
-        self.projection = RectangularProjection(self.P, self.S0)
+        # Create the projection operator
+        self.proj = RectangularProjection(P)
+        self.projection = RectangularProjection(PS)
 
         # create the block matrix for S
-        return M.tobsr(), self.Pc, self.S0
+        return M, None, self.projection
 
-    def matrix_moore(self, *args, **kwargs):
-        """ TODO: this really should not be here. FIXME in the future! """
-        M, _, S0 = self.instantiate(self.source.quasiOp_bif, *args, **kwargs)
-        M = blockmat(M)
-
-    def matrix_inverse_basis(self, *args, **kwargs):
-        S = self.instantiate_i(self.source.quasiOp, *args, **kwargs)
-        return sps.block_diag(S)
-
-    def matrix_full(self, *args, **kwargs):
-        M, Pc, S0 = self.instantiate(self.source.quasiOp, *args, **kwargs)
-
-        # then call reduce to create a rectangular matrix
-        #   -> Need to do this so that we generate the projection operator!
-        PA, P, PS = self.reduce(M, S0)
-
-        # Get the constraints -> we won't use them but need it!
-        cols = PA.shape[1]
-        B = self.getConstraints(cols)
-        m = self.shape[1]
-
-        if B is not None:
-            self.idenRows, bc_per = self.bc_rows(B)
-        else:
-            self.idenRows = np.arange(m * self.dimension)
-
-        # Create full matrix M
-        M = blockmat(M)
-
-        # Generate the full S0 matrix
-        S0 = sps.bmat(S0)
-
-        # Create projection matrix
-        self.projection = RectangularProjection(P, S0)
-
-        # Get the inverse basis transformation
-        S = self.instantiate_i(self.source.quasiOp, *args, **kwargs)
-        M = sps.block_diag(S) * M
-
-        # create the block matrix for S
-        return M.tocsr()
-
-    def matrix_adjoint(self, bc=False, invert=True, *args, **kwargs):
-        """ Creates the discretized approximation of the adjoint linear operator.
-        Currently this function uses rectangularization to impose functional constraints on solutions.
+    def linop(self, *args, **kwargs):
+        """ Creates the discretized approximation of the linear or nonlinear
+        operator. Currently this function uses rectangularization to
+        impose functional constraints on solutions.
         """
-        M, S0 = self.instantiate_adjoint(self.source.quasiOp, *args, **kwargs)
-
-        # Get the inverse basis transformation
-        if invert:
-            n, m = M.shape
-            S = self.instantiate_i(self.source.quasiOp, *args, **kwargs)
-            for i, j in itertools.product(range(n), range(m)):
-                M[i, j] = S[i] * M[i, j]
-
-        if bc:
-            # then call reduce to create a rectangular matrix
-            PA, P, PS = self.reduce(M, S0)
-
-            # Get the constraints
-            cols = PA.shape[1]
-            B = self.getConstraints(cols)
-            self.idenRows, _ = self.bc_rows(B)
-
-            # Append the functional constraints to the constructed linear operators
-            M = sps.vstack((B, PA))
-            M = flip_rows(M, self.idenRows)
-
-        # create the block matrix for S
-        return M.tobsr()
-
-    def matrix_nonproj(self, *args, **kwargs):
+        # Create matrix representation of the operator
         M, Pc, S0 = self.instantiate(self.source.quasiOp, *args, **kwargs)
+        PM, P, PS = self.reduce(M, S0)
 
-        # then call reduce to create a rectangular matrix
-        PA, P, PS = self.reduce(M, S0)
+        # Create matrix representation of the operator adjoint
+        N, Qc, T0 = self.instantiate(self.source.quasiOp, adjoint=True, format='csr', *args, **kwargs)
+        QN, Q, QT = self.reduce(N, T0, adjoint=True)
 
         # Get the constraints
-        cols = PA.shape[1]
-        B = self.getConstraints(cols)
+        B = self.getConstraints(PM.shape[1])
 
-        # Re-order such that the leading order derivative term is situated on
-        # the main matrix diagonal -> Important for easy pre-conditioner
-        # construction.
-        m = self.source.linOp.shape[1]
-        # TODO TEMP: this should all be worked out in the source!
-        bc_off = B.shape[0]
-        bc_per = B.shape[0] // m
-        dim = self.dimension - bc_per
-        self.idenRows = np.hstack([np.hstack(
-            [eqn*bc_per + np.arange(bc_per), bc_off + eqn * dim + np.arange(dim)]) for eqn in range(m)])
+        # Check that B-rows are not zero
+        if np.all(np.sum(np.abs(B), axis=1) == 0.0):
+            warnings.warn('OpDiscretization: Boundary condition rows have zero l1 norm!\nMost likely the resulting matrix will be singular! Double check your boundary conditions!')
 
         # Append the functional constraints to the constructed linear operators
-        Mf = sps.vstack((B, PA))
-        Mf = flip_rows(Mf, self.idenRows)
+        BB = csc_array(self.toFunction(B))
+        B  = csr_array(B)
+        M  = sps.vstack((B, PM))
 
-        # Store the basic basis conversion matrix
-        S0 = sps.bmat(S0)
-        # store the projection matrix
-        self.P = P
+        # Add the correct options to the adjoint
+        # N = sps.hstack((BB, QN))  # BB here!
+        N = sps.vstack((B, QN))
+
+        # Create the projection operator
+        self.proj = RectangularProjection(P, Q)
+        self.projection = RectangularProjection(PS, QT)
 
         # create the block matrix for S
-        return sps.bmat(M), Mf.tocsr(), self.P, S0
+        return M, N, self.projection
 
-    def rhs(self, u=None):
+    def instantiate(self, source, *args, **kwargs):
         return NotImplemented
 
-    def diff_a(self, u):
+    def reduce(self, A, S):
         return NotImplemented
 
-    def toFunctionOut(self, coeffs, cutoff):
+    def toFunctionOut(self, coeffs):
         return NotImplemented
 
     def toFunctionIn(self, coeffs):
+        return NotImplemented
+
+    def toValues(self, coeffs):
         return NotImplemented

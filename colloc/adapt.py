@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
+from support.tools import findNextPowerOf2
 from copy import deepcopy
 import numpy as np
 
@@ -15,13 +16,12 @@ class SolverAdaptive:
         """
         Arguments: nw -> an instance of a nonlinear solver.
         """
-        self.ntol = kwargs.pop('ntol', 1e-8)
-        self.ltol = kwargs.pop('ltol', 1e-10)
-        self.n_min = min(7, kwargs.pop('n_min', 4))
-        self.n_max = kwargs.pop('n_max', 11)
+        self.ntol = kwargs.pop('tol', 1e-8)
+        self.n_min = min(7, kwargs.pop('n_min', 2))
+        self.n_max = kwargs.pop('n_max', 14)
         self.nw = nw
 
-    def n_disc(self, lower_bd=17, n_trans=10, constant=False, *args, **kwargs):
+    def n_disc(self, lower_bd=17, n_trans=9, constant=False, *args, **kwargs):
         """ The discretization sizes the solver uses.
 
         Arguments:
@@ -33,52 +33,49 @@ class SolverAdaptive:
         if constant:
             return np.array([1])
 
-        return np.unique(np.maximum(lower_bd, np.hstack((1 + 2**np.arange(self.n_min, n_trans), 1 + np.arange(3*2**(n_trans-2), 2**self.n_max, 2**(n_trans-2))))))
-        #return np.unique(np.maximum(lower_bd, 1 + 2**np.arange(self.n_min, self.n_max)))
+        upper_bd = kwargs.pop('upper_bd', 1 + 2**self.n_max)
+        return np.unique(np.maximum(lower_bd,
+                                    np.minimum(upper_bd, 1 + 2**np.arange(self.n_min, 1 + self.n_max))))
 
-    def solve(self, state, eps=1e-9, verbose=False, *args, **kwargs):
+    def solve(self, state, eps=1e-8, up_steps=12, max_fail_steps=3,
+              verbose=False, learn_solution=False, *args, **kwargs):
         """ The solver method
 
             Arguments:
                 state -> Must be of BaseState type.
         """
-        n_its = self.n_disc(lower_bd=state.shape[0], *args, **kwargs)
+        lower_bd = state.shape[0]
+        upper_bd = 2**int(np.log2(findNextPowerOf2(lower_bd)) + max(up_steps - 1, 0))
+        n_its = self.n_disc(lower_bd=lower_bd, upper_bd=upper_bd, *args, **kwargs)
         success = np.zeros_like(n_its).astype(bool)
 
-        new_state = None
         for k, n in enumerate(n_its):
-            if new_state is None:
-                init_state = deepcopy(state)
-                init_state.prolong(n)
-            else:
-                init_state = deepcopy(new_state)
-                init_state.prolong(n)
-
-            if new_state is not None: new_state.prolong(n)
+            if state is not None: state.prolong(n)
             self.nw.system.setDisc(n)
 
             # Solve the system! -> Since we repeat we cannot learn solutions without causing
             # subsequent convergence failure!
-            nst, success[k], it = self.nw.solve(init_state, learn_solution=False, scale=False,
-                                                tol=self.ntol, inner_tol=self.ltol, *args, **kwargs)
+            nst, success[k], it = self.nw.solve(state, learn_solution=learn_solution,
+                                                tol=self.ntol, *args, **kwargs)
 
             # Compute the difference between the two most recent approximations. If this difference
             # is small we are happy with the solution and return it!.
-            d_norm = (new_state - nst).norm() if new_state is not None else np.inf
+            d_norm = (state - nst).norm() if state is not None else np.inf
 
             if verbose:
-                print('\tSolve with n = %d; k = %d; iters = %d; neval = %d; |d| = %.4g, |r| = %.4g; success = '
-                      % (n, k, it, self.nw.neval, d_norm, self.nw.normfk), success[:k+1])
+                print(f'\tSolve with n = {n}; k = {k}; iters = {it}; neval = {self.nw.neval}; |d| = {d_norm:.6e}; success = {success[:k+1]}')
 
             # We only update the state variables if Newton's method was successful!
             if success[k]:
-                if d_norm < eps:
+                if d_norm < eps and k > 0:
                     break
 
-                new_state = nst
+                state = deepcopy(nst)
                 continue
-            else:
-                new_state = None
+
+            # If we have already done 3 iterations that have failed; let's bail!
+            elif k >= max_fail_steps - 1 and np.all(~success):
+                break
 
         # The n required for the solution
-        return new_state, success[k], it
+        return state, success[k], it

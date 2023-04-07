@@ -3,11 +3,16 @@
 # Author: Andreas Buttenschoen
 import sympy as syp
 from sympy import Function
-from sympy.printing.pycode import SciPyPrinter, NumPyPrinter
+
+try:
+    # Newer versions of sympy seem to have moved this
+    from sympy.printing.pycode import SciPyPrinter, NumPyPrinter
+except ImportError:
+    from sympy.printing.numpy import SciPyPrinter, NumPyPrinter
 
 
-class ChebPyPrinter(SciPyPrinter):
-    language = "Python with chebpy"
+class FunPyPrinter(SciPyPrinter):
+    language = "Python with funpy"
 
     _default_settings = dict(
         SciPyPrinter._default_settings,
@@ -30,9 +35,9 @@ class ChebPyPrinter(SciPyPrinter):
         if self._settings.get('no_evaluation', False):
             return r"np.diff(%s, %d)" % (self._print(expr.expr), dim)
         else:
-            return r"np.diff(%s, %d)(%s)" % (self._print(expr.expr), dim, arg)
+            return r"np.diff(%s, %d)(%s)" % (self._print(expr.expr, overwrite_eval=True), dim, arg)
 
-    def _print_Function(self, expr):
+    def _print_Function(self, expr, overwrite_eval=False):
         if expr.func.__name__ in self.known_functions:
             cond_func = self.known_functions[expr.func.__name__]
             func = None
@@ -47,7 +52,7 @@ class ChebPyPrinter(SciPyPrinter):
                     return func(*[self.parenthesize(item, 0) for item in expr.args])
                 except TypeError:
                     return "%s(%s)" % (func, self.stringify(expr.args, ", "))
-        elif expr.func.__name__ in self._settings.get('function_names', []):
+        elif (expr.func.__name__ in self._settings.get('function_names', [])) or overwrite_eval:
             return '%s' % self._print(expr.func)
         elif hasattr(expr, '_imp_') and isinstance(expr._imp_, Lambda):
             # inlined function
@@ -58,8 +63,6 @@ class ChebPyPrinter(SciPyPrinter):
             return self._print(expr.rewrite(self._rewriteable_functions[expr.func.__name__]))
         elif expr.is_Function and self._settings.get('allow_unknown_functions', False):
             return '%s(%s)' % (self._print(expr.func), ', '.join(map(self._print, expr.args)))
-        # elif expr.is_Function and self._settings.get('allow_unknown_functions', False):
-        #     return '%s' % self._print(expr.func)
         elif expr.is_Function and self._settings.get('no_evaluation', False):
             return '%s' % (self._print(expr.func))
         else:
@@ -107,4 +110,4 @@ def spcode(expr, **settings):
     return SciPyPrinter(settings).doprint(expr)
 
 def cpcode(expr, **settings):
-    return ChebPyPrinter(settings).doprint(expr)
+    return FunPyPrinter(settings).doprint(expr)

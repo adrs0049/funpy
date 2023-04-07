@@ -6,7 +6,7 @@ import re
 from numbers import Number
 from ac.support import Namespace
 
-from fun import Fun
+from fun import Fun, asfun
 from colloc.quasiOpBlock import QuasiOpBlock
 
 
@@ -95,6 +95,7 @@ class LinBlock:
         new_coeffs = np.empty(len(self.coeffs), dtype=object)
         for i, coeff in enumerate(self.coeffs):
             new_coeffs[i] = coeff(*u).simplify(eps=eps)
+            #print('i = ', i, ' : ', coeff, ' : ', new_coeffs[i], ' : ', asfun(new_coeffs[i], type='trig'))
 
         # if np.any(self.nl_info()):
         #     new_nl_coeffs = np.empty(len(self.nlcoeffs), dtype=object)

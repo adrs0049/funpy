@@ -23,6 +23,11 @@ class Residual:
         # store the current rhs
         self.values = kwargs.pop('values', None)
 
+    @property
+    def pars(self):
+        """ Prints the current parameters in the namespace! """
+        return self.ns['print_pars']()
+
     def build(self, src, n_eqn, *args, **kwargs):
         debug = kwargs.get('debug', False)
 

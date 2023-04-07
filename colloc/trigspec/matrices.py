@@ -4,7 +4,7 @@
 import numpy as np
 from functools import lru_cache
 import scipy.sparse as sps
-from sparse.csr import delete_rows_csr, eliminate_zeros_csr
+from sparse.csr import delete_rows_csr
 from scipy.sparse import spdiags, eye, csr_matrix, lil_matrix, issparse
 
 from colloc.ultraS.transform import sptoeplitz, spconvert, spconvert_inv, sphankel
@@ -67,9 +67,9 @@ def multmat(k, f, format=None):
     if Na < k:
         col = np.hstack((c[Na:],    np.zeros(k-Na-1)))
         row = np.hstack((c[Na::-1], np.zeros(k-Na-1)))
-    else:  # truncate FIXME!
-        col = c[Na:]
-        row = c[Na::-1]
+    else:  # truncate
+        col = c[Na:k-Na-1]
+        row = c[Na:Na-k:-1]
 
     return sptoeplitz(col, row, format=format)
 

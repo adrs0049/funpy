@@ -2,15 +2,11 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-import scipy
-import scipy.linalg as LA
-import scipy.sparse.linalg as LAS
 from pylops import LinearOperator
 
-from states.State import ContinuationState
+from states.cont_state import ContinuationState
 from newton.deflated_residual import DeflatedResidual
 from support.Functional import Functional
-from cheb.chebpts import quadwts
 
 
 class PseudoArcContinuationCorrectorPrecond(LinearOperator):

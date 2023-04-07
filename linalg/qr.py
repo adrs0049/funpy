@@ -8,7 +8,10 @@ import numpy
 
 # Local imports
 from scipy.linalg.lapack import get_lapack_funcs
-from scipy.linalg.misc import _datacopied
+try:
+    from scipy.linalg._misc import _datacopied
+except ImportError:
+    from scipy.linalg.misc import _datacopied
 
 
 def safecall(f, name, *args, **kwargs):

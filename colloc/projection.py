@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from sparse.csr import csr_vappend
 from pylops import LinearOperator
 
 
@@ -11,19 +10,24 @@ class RectangularProjection(LinearOperator):
         Implements an operator for the rectangular projections used
         in collocating differential operators.
     """
-    def __init__(self, P, S0, dtype=None, *args, **kwargs):
+    def __init__(self, matrix, adjoint=None, dtype=None, *args, **kwargs):
         # The projection matrix
-        self.op = P * S0
+        self.mat = matrix
+        self.adj = adjoint
 
         # Basic setup for the linear operator
-        self.shape = self.op.shape
+        self.shape = self.mat.shape
         self.dtype = np.dtype(dtype)
         self.explicit = False
 
     def _matvec(self, x):
-        return self.op.dot(x).squeeze()
+        """
+            Implements y = A x
+        """
+        return self.mat.dot(x).squeeze()
 
-    def _rmatvec(self, x):
-        """ Implements x = A^H y """
-        assert False, ''
-        return np.zeros_like(x)
+    def _rmatvec(self, y):
+        """
+            Implements x = A^H y
+        """
+        return self.adj.dot(y).squeeze()

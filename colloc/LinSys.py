@@ -6,11 +6,14 @@ from ac.support import Namespace
 from fun import Fun
 
 from colloc.chebOpConstraint import ChebOpConstraint
+from colloc.chebOpConstraintCompiled import ChebOpConstraintCompiled
 from colloc.tools import execute_pycode
 from colloc.LinSysBase import LinSysBase
 from colloc.linOp import LinOp
 from colloc.bilinOp import BiLinOp
 from colloc.rhs import Residual
+from colloc.linearFunctional import linearFunctional
+from colloc.bilinearForm import bilinearForm
 from colloc.pDerivative import DerivativeFunctional
 
 
@@ -22,10 +25,13 @@ class LinSys(LinSysBase):
         """ Class that represents a linear system -> Ax = b """
         super().__init__(diffOrder, *args, **kwargs)
 
-        self.linOp = None   # A
-        self.rhs   = None   # b
-        self.pDer  = None   # Derivatives of b(u)
-        self.linOp_bif = None # Operator required for Moore form
+        self.linOp = None      # A
+        self.rhs   = None      # b
+        self.df    = None      # First derivative
+        self.ddx   = None      # Second derivative bilinear forms
+        self.pDer  = None      # Derivatives of b(u)
+        self.dxdp  = None
+        self.linOp_bif = None  # Operator required for Moore form
 
         # linear system for potential constraints
         self.c_linOp = None
@@ -47,12 +53,15 @@ class LinSys(LinSysBase):
         # TODO: FIXME again why the sub-selection of the object?
         try:
             self.quasiOp = self.linOp.quasi(u.u, *args, **kwargs)
+            if self.c_linOp is not None:
+                self.quasiOp += self.c_linOp.quasi(u.u, *args, **kwargs)
+
         except AttributeError:
             self.quasiOp = self.linOp.quasi(u, *args, **kwargs)
 
-        # Add any constraint operators
-        if self.c_linOp is not None:
-            self.quasiOp += self.c_linOp.quasi(u.u, *args, **kwargs)
+            # Add any constraint operators
+            if self.c_linOp is not None:
+                self.quasiOp += self.c_linOp.quasi(u, *args, **kwargs)
 
         return self.quasiOp
 
@@ -60,6 +69,8 @@ class LinSys(LinSysBase):
         self.n_disc = n
         self.linOp.n_disc = n
         self.rhs.n_disc = n
+        if self.df is not None: self.df.n_disc = n
+        if self.ddx is not None: self.ddx.n_disc = n
         if self.par: self.pDer.n_disc = n
 
         if self.c_linOp is not None:
@@ -67,8 +78,10 @@ class LinSys(LinSysBase):
             self.c_rhs.n_disc = n
 
     def build(self, src, diffOrder=0, *args, **kwargs):
+        debug = kwargs.get('debug', False)
+
         # execute the program imports
-        execute_pycode(src.common, self.ns)
+        execute_pycode(src.common, self.ns, debug=debug)
 
         # Create the linear operator
         self.linOp = LinOp(self.ns, diffOrder)
@@ -78,8 +91,28 @@ class LinSys(LinSysBase):
         self.rhs = Residual(self.ns, n_disc=self.n_disc, name='rhs')
         self.rhs.build(src.eqn, src.n_eqn, **kwargs)
 
-        # Create the p-derivative function
+        # Create the second derivative vector bilinear form
+        if self.par and (src.deqn is not None):
+            # The action of the Frechet derivative of the operator
+            self.df = linearFunctional(self.ns, n_disc=self.n_disc, name='df')
+            self.df.build(src.deqn, src.n_eqn, **kwargs)
+
+            # The action of the bilinear form of the second order
+            # Frechet derivative of the operator.
+            self.ddx = bilinearForm(self.ns, n_disc=self.n_disc, name='ddx')
+            self.ddx.build(src.ddeqn, src.n_eqn, **kwargs)
+
+            # The derivatives of the linearization
+            self.dxdp  = linearFunctional(self.ns, **kwargs)
+            self.dxdp.build(src.dxdp, src.n_eqn, **kwargs)
+
+            # The action of the bilinear form of the adjoint second order
+            # Frechet derivative of the operator.
+            self.ddx_adj = bilinearForm(self.ns, n_disc=self.n_disc, name='ddx_adj')
+            self.ddx_adj.build(src.dd_adjeqn, src.n_eqn, **kwargs)
+
         if self.par:
+            # Create the p-derivative function
             # The derivative of the operator w.r.t. the main continuation parameter
             self.pDer = DerivativeFunctional(self.ns, **kwargs)
             self.pDer.build(src, **kwargs)
@@ -97,6 +130,28 @@ class LinSys(LinSysBase):
                 return u
             self.c_rhs.proj = lambda u: pp(u)
 
+        # Compile constraints
+        # 1. Execute the constraint code in the namespace
+        pycode = src.bcs.emit()
+        execute_pycode(pycode, self.ns, debug=debug)
+
+        for bc_op in src.bcs:
+            try:
+                constraint = ChebOpConstraint(op=self.ns[bc_op.symbol_name],
+                                              domain=src.domain)
+
+                self.constraints.append(constraint)
+            except KeyError:
+                raise RuntimeError('Could not find {0:s} in the namespace!'.format(bc_op.symbol_name))
+
+        # Compile the boundary cache!
+        bc_cache = ChebOpConstraintCompiled(self, n=1 + 2**12, m=src.n_eqn, domain=src.domain)
+        blocks = bc_cache.compile()
+
+        # Assign the compiled BCs
+        for i, constraint in enumerate(self.constraints):
+            constraint.compiled = blocks[i]
+
     def getConstraintsRhs(self, u):
         rhs = np.empty((self.numConstraints, 1), dtype=np.float)
         for i, constraint in enumerate(self.constraints):
@@ -105,6 +160,8 @@ class LinSys(LinSysBase):
 
     def update_partial(self, u):
         """ u: State is expected to have a Namespace providing all required parameters """
+        if u is None: return
+
         # Update namespace parameters!
         self.setParametersPartial(u)
 

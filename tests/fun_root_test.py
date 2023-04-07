@@ -41,10 +41,11 @@ class TestFunRoots:
         assert_almost_equal(r[2], 1)
 
     def test_sin2(self):
-        f  = Fun(op=lambda x: np.sin(np.pi * x), domain=[0, 1])
+        f = Fun(op=lambda x: np.sin(2. * np.pi * x), domain=[0, 1])
         r = roots(f)
 
         # check that roots is empty
-        assert_(len(r) == 2)
-        assert_almost_equal(r[1], 1)
+        assert_(len(r) == 3)
         assert_almost_equal(r[0], 0)
+        assert_almost_equal(r[1], 0.5)
+        assert_almost_equal(r[2], 1)

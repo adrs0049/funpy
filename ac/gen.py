@@ -1,6 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
+#
+# https://gist.github.com/kafagy/4be733ea943fcb2f89feb7378438b6a9
+#
 from __future__ import print_function, absolute_import, division
 
 import string

@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
+from math import ceil
 import numpy as np
 import scipy as sp
 from math import sqrt, log
@@ -9,6 +10,21 @@ from scipy.sparse.linalg import splu
 from fun import minandmax
 from cheb.detail import polyval
 from cheb.chebpts import quadwts
+
+
+def findNextPowerOf2(n):
+    if n <= 1:
+        return 2
+
+    n = n - 1
+    while n & n - 1:
+        n = n & n - 1
+
+    return n << 1
+
+
+def round_up(num, divisor):
+    return ceil(num / divisor) * divisor
 
 
 def secant(s1, d1, s2, d2):
@@ -30,14 +46,17 @@ def secant(s1, d1, s2, d2):
     """
     return s2 - d2 * (s2 - s1) / (d2 - d1)
 
+
 def find_nearest(array, value):
     array = np.asarray(array)
     idx = (np.abs(array - value)).argmin()
     return array[idx]
 
+
 def find_nearest_idx(array, value):
     array = np.asarray(array)
     return (np.abs(array - value)).argmin()
+
 
 def orientation_y(u):
     """
@@ -63,15 +82,18 @@ def orientation_y(u):
     #     return 0
     # return np.sign(sum)
 
+
 def moving_average(a, n=3):
     ret = np.cumsum(a, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n-1:] / n
 
+
 def theta_interp(s1, s2, kappa, kc=0.85, wd=1):
     f1 = lambda k: 0.5 * (np.tanh(-(k - kc) / 0.3) + 1)
     f2 = lambda k: 0.5 * (np.tanh( (k - kc) / 0.3) + 1)
     return np.round(f1(kappa) * s1 + f2(kappa) * s2, decimals=3)
+
 
 def minimumSwaps(arr):
     """
@@ -90,6 +112,7 @@ def minimumSwaps(arr):
             count+=1
     return count
 
+
 # TODO: move these functions somewhere more appropriate!!
 def permutation_vector_to_matrix(E):
     '''Convert a permutation vector E (list or rank-1 array, length n) to a permutation matrix (n by n).
@@ -98,6 +121,7 @@ The result is returned as a scipy.sparse.coo_matrix, where the entries at (E[k],
     n = len(E)
     j = np.arange(n)
     return sp.sparse.coo_matrix((np.ones(n), (E, j)), shape=(n, n))
+
 
 def logdet_detail_superlu(lu):
     diagL = lu.L.diagonal().astype(np.complex128)
@@ -109,6 +133,7 @@ def logdet_detail_superlu(lu):
     sign = (-1)**(swap_sign) * np.sign(diagL).prod()*np.sign(diagU).prod()
 
     return np.real(sign), np.real(logdet)
+
 
 def logdet_detail_umfpack(lu):
     diagL = lu.L.diagonal().astype(np.complex128)
@@ -125,9 +150,11 @@ def logdet_detail_umfpack(lu):
 
     return np.real(sign), np.real(logdet)
 
+
 def logdet(M):
     lu = splu(M.tocsc())
     return logdet_detail_superlu(lu)
+
 
 def givensAlgorithm(f, g):
     """
@@ -195,6 +222,7 @@ def givensAlgorithm(f, g):
 
     return cs, sn, r
 
+
 def slogdet_hessenberg(mat):
     """
     Computes the sign and logdet of a Hessenberg matrix!
@@ -229,6 +257,7 @@ def slogdet_hessenberg(mat):
     P *= np.sign(g[0])
     return P, logdet
 
+
 def detH(A):
     """ Computes the determinant of an upper Hessenberg matrix
 
@@ -258,6 +287,7 @@ def detH(A):
 
     return d[k+1]
 
+
 def functional(function):
     rescaleFactor = 0.5 * np.diff(function.domain)
     psic = np.empty(function.m, dtype=object)
@@ -266,6 +296,7 @@ def functional(function):
         psic[j] = np.rot90(polyval(w * col.values.T), -1)
     psic = np.hstack(psic) * rescaleFactor
     return psic
+
 
 class Determinant:
     def __init__(self, logdet=None, sign=None, lu=None):

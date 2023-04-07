@@ -4,7 +4,8 @@
 import numpy as np
 import scipy.sparse as sps
 
-def csr_vappend(a,b):
+
+def csr_vappend(a, b):
     """ Takes in 2 csr_matrices and appends the second one to the bottom of the first one.
     Much faster than scipy.sparse.vstack but assumes the type to be csr and overwrites
     the first matrix instead of copying it. The data, indices, and indptr still get copied."""
@@ -15,6 +16,7 @@ def csr_vappend(a,b):
     a.indptr = np.hstack((a.indptr,(b.indptr + a.nnz)[1:]))
     a._shape = (a.shape[0]+b.shape[0],b.shape[1])
     return a
+
 
 def delete_row_csr(mat, i):
     if not isinstance(mat, sps.csr_matrix):
@@ -30,6 +32,7 @@ def delete_row_csr(mat, i):
     mat.indptr = mat.indptr[:-1]
     mat._shape = (mat._shape[0]-1, mat._shape[1])
 
+
 def delete_rows_csr(mat, indices):
     """
         Deletes rows in indices from a csr sparse matrix
@@ -41,12 +44,13 @@ def delete_rows_csr(mat, indices):
     mask[indices] = False
     return mat[mask]
 
-def eliminate_zeros_csr(mat, eps=None):
+
+def eliminate_zeros(mat, eps=None):
     """
         Eliminates matrix values that are below machine precision
     """
-    if not isinstance(mat, sps.csr_matrix):
-        raise ValueError("Work only for CSR format -- use .tocsr() first!")
+    if not (isinstance(mat, sps.csr_matrix) or isinstance(mat, sps.csc_matrix)):
+        raise ValueError("Work only for CSR / CSC format -- use .tocsr() or .tocsc() first!")
 
     if eps is None:
         eps = np.finfo(mat.dtype).eps
@@ -55,6 +59,7 @@ def eliminate_zeros_csr(mat, eps=None):
     mat.data[np.abs(mat.data) < eps] = 0
     mat.eliminate_zeros()
     return mat
+
 
 def flip_rows(mat, idenRows):
     """ Flips row in a sparse matrix: idenRows must be the order of the new rows """

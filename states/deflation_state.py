@@ -5,7 +5,8 @@ import numpy as np
 from copy import deepcopy
 from numbers import Number
 
-from fun import h1norm, norm, norm2, sturm_norm, sturm_norm_alt, sturm_norm
+from fun import Fun
+from fun import h1norm, norm, norm2, sturm_norm, sturm_norm_alt
 from states.base_state import BaseState
 from states.parameter import Parameter
 
@@ -26,9 +27,19 @@ class DeflationState(BaseState):
         self.sync_ns()
 
     @classmethod
-    def from_state(cls, other):
+    def from_state(cls, other, **kwargs):
         pars = {n: v for n, v in other.items()}
-        return cls(u=other.u, **pars)
+        return cls(u=other.u, **{**pars, **kwargs})
+
+    @classmethod
+    def from_coeffs(cls, coeffs, n_funs, *args, **kwargs):
+        assert coeffs.size % n_funs == 0, f'New coefficients with size {coeffs.size} does not fit expected {n_funs}!'
+        soln = Fun.from_coeffs(coeffs, n_funs, *args, **kwargs)
+        return cls(u=np.real(soln))
+
+    @classmethod
+    def from_fun(cls, fun, *args, **kwargs):
+        return cls(u=np.real(fun))
 
     @property
     def u(self):

@@ -56,6 +56,6 @@ class DerivativeFunctional:
             raise KeyError("Unknown parameter {0:s}!".format(pname))
 
         if isinstance(u, TwoParameterState):
-            return [dp(*u.u, *u.phi) for dp in dps]
+            return np.hstack([dp(*u.u, *u.phi) for dp in dps])
         else:
-            return [dp(*u) for dp in dps]
+            return np.hstack([dp(*u) for dp in dps])

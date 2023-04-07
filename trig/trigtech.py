@@ -19,6 +19,10 @@ from trig.trigpts import trigpts, quadwts
 from trig.trig_simplify import prolong
 
 
+# Directory for numpy implementation of functions
+HANDLED_FUNCTIONS = {}
+
+
 """ Do the inheritance correctly otherwise we have all kinds of isinstance problems """
 class trigtech(np.lib.mixins.NDArrayOperatorsMixin):
     def __init__(self, op=None, file=None, values=None, coeffs=None, *args, **kwargs):
@@ -131,7 +135,7 @@ class trigtech(np.lib.mixins.NDArrayOperatorsMixin):
 
     def __array_ufunc__(self, numpy_ufunc, method, *inputs, **kwargs):
         import trig.ufuncs as cp_funcs
-        out = kwargs.get('out', ())
+        #out = kwargs.get('out', ())
         # for x in inputs + out:
         #     if not isinstance(x, (np.ndarray, Number, type(self))):
         #         return NotImplemented
@@ -158,11 +162,17 @@ class trigtech(np.lib.mixins.NDArrayOperatorsMixin):
         else:
             return NotImplemented
 
+
+    """ Implement array ufunc support """
+    def __array_function__(self, func, types, args, kwargs):
+        if func not in HANDLED_FUNCTIONS:
+            return NotImplemented
+        if not all(issubclass(t, self.__class__) for t in types):
+            return NotImplemented
+        return HANDLED_FUNCTIONS[func](*args, **kwargs)
+
     def isfortran(self):
         return self.coeffs.flags.f_contiguous
-
-    def __len__(self):
-        return self.coeffs.shape[0]
 
     @property
     def type(self):
@@ -398,260 +408,15 @@ class trigtech(np.lib.mixins.NDArrayOperatorsMixin):
         self.values, self.coeffs = simplify_coeffs(self.coeffs, self.isReal, eps=eps)
         return self
 
-    def __call__(self, other):
-        return self.feval(other)
+    def __call__(self, x):
+        return self.feval(x)
 
-    def feval(self, other):
-        return self.horner(other)
+    def feval(self, x):
+        return self.horner(x)
 
     def horner(self, x):
         x = np.atleast_1d(x)
         return horner(x, self.coeffs, self.isReal).squeeze()
-
-    def diff(self, k=1, axis=0):
-        """ Computes the derivative of a trigtech """
-        assert axis == 0, 'other not implemented'
-        n = self.n
-        c = np.copy(self.coeffs)
-
-        if n & 1:
-            waveNumber = np.expand_dims(np.arange(-(n-1)/2, n/2), axis=1)
-        else:
-            waveNumber = np.expand_dims(np.arange(-n/2, n/2), axis=1)
-
-        # derivative in Fourier space
-        c = c * (1j * np.pi * waveNumber)**k
-        return trigtech(coeffs=c, ishappy=self.ishappy, isreal=self.isReal, simplify=False)
-
-    def diff_fast(self, k=1, axis=0):
-        """ Computes the derivative of a trigtech Fourier space """
-        assert axis == 0, 'other not implemented'
-        n = self.n
-
-        if n & 1:
-            waveNumber = np.expand_dims(np.arange(-(n-1)/2, n/2), axis=1)
-        else:
-            waveNumber = np.expand_dims(np.arange(-n/2, n/2), axis=1)
-
-        # derivative in Fourier space
-        return self.coeffs * (1j * np.pi * waveNumber)**k
-
-    def diffmat(self, k=1):
-        """ Trigonometric differentiation matrix
-
-        maps functions values at N equispaced grid points in [0, 2*pi) to
-        values of the derivative of the Fourier interpolant at those points.
-
-        This should be moved somewhere else!
-        """
-        n = self.n
-        h = 2*np.pi/n
-
-        # sign
-        sgn = np.expand_dims((-1)**(np.arange(1, n)), axis=1)
-
-        # indices
-        n1 = floor((n-1)/2)
-        n2 = ceil((n-1)/2)
-
-        # grid points on [-1, 0)
-        v = np.expand_dims(np.arange(1, n2+1), axis=1) * h/2
-
-        if k == 0:
-            return np.eye(n)
-        elif k == 1:
-            if n & 1:
-                tmp = 1./np.sin(v)
-                col = np.vstack((0, (np.pi/2)*sgn*np.vstack((tmp, np.flipud(tmp[:n1])))))
-            else:
-                tmp = 1./np.tan(v)
-                col = np.vstack((0, (np.pi/2)*sgn*np.vstack((tmp, -np.flipud(tmp[:n1])))))
-
-            # form the first row
-            row = -col
-
-        elif k == 2:
-            # form columns by flipping trick
-            if n & 1:
-                tmp = (1./np.sin(v)) * (1./np.tan(v))
-                col = np.pi**2 * np.vstack((-np.pi**2/(3*h**2)+1/12, -0.5 * sgn * np.vstack((tmp, -np.flipud(tmp[:n1])))))
-            else:
-                tmp = (1./np.sin(v))**2
-                col = np.pi**2 * np.vstack((-np.pi**2/(3*h**2)-1/6, -0.5 * sgn * np.vstack((tmp, np.flipud(tmp[:n1])))))
-
-            # for the first row
-            row = col
-        else:
-            # Form the first column using fft
-            n3 = (-n/2)*np.remainder(k+1,1)*np.ones(np.remainder(n+1,2))
-            waveNumber = 1j*np.hstack((np.arange(n1+1), n3, np.arange(-n1,0)))
-            col = np.pi**k * np.real(ifft(waveNumber**k * fft(np.eye(1,n))))
-
-            # for the first row
-            if k & 1:
-                col = np.hstack((0, col[0, 1:]))
-                row = -col
-            else:
-                row = col
-
-        # form the differentiation matrix which is toeplitz
-        return LA.toeplitz(col, row)
-
-    """ Definite Integral """
-    def sum(self, axis=None, **unused_kwargs):
-        if axis is None:
-            axis = 0
-        assert axis == 0, ''
-        n = self.n
-        out = 2 * self.coeffs[None, floor((n+2)/2)-1, :]
-        out[:, self.isReal] = np.real(out[:, self.isReal])
-        return out.squeeze()
-
-    """ Indefinite Integral """
-    def cumsum(self, m=1, **unused_kwargs):
-        """ Indefinite integral of a trigtech F, whose mean is zero, with the constant of
-        integration chosen such as F(-1) = 0. If the mean is not zero, the result would no longer
-        be periodic thus an error is thrown.
-
-        If the trigtech of length n is represented by the truncated series
-
-            sum_{k = -(n-1)/2}^{(n-1)/2} c_k exp(i*pi*kx)
-
-        its integral is represented with a trigtech of length n given by
-
-            sum_{k = -(n-1)/2}^{(n-1)/2} b_k exp(i*pi*kx)
-
-        where b_0 is determined from the constant of integration as
-
-            b_0 = sum_{k=-(n-1)/2}^{(n-1)/2} (-1)^k / (i pi k) c_k
-
-        with c_0 = 0. The other coefficients are given by
-
-            b_k = c_k / (i pi k).
-
-        """
-        c = self.coeffs
-        n = self.n
-        isEven = np.remainder(n, 2) == 0
-
-        # Index of the constant coefficients
-        if isEven:
-            ind = n//2 + 1
-        else:
-            ind = (n+1)//2
-
-        # check that the mean of the trigtech is zero. If it is not, then throw an error.
-        if np.any(np.abs(self.coeffs[ind, :])) > 1e1*self.vscale*self.eps:
-            raise RuntimeError("Indefinite integrals are only possible for trigtech objects with zero mean!")
-
-        # throw error that this is only possible for mean zero trigtechs
-        if isEven:
-            # set coeff corresponding to the constant mode to zero:
-            c[n//2, :] = 0
-            # expand the coefficients to be symmetric (see above discussion)
-            c[0, :] = 0.5 * c[0, :]
-            c = np.vstack((c, c[0, :]))
-            highestDegree = n//2
-        else:
-            c[(n+1)//2, :] = 0
-            highestDegree = (n-1)//2
-
-        # loop over integration factor for each coefficient
-        sumIndices = np.expand_dims(np.arange(-highestDegree, highestDegree+1), axis=1)
-        integrationFactor = (-1j/sumIndices/np.pi)**m
-        # zero out the one corresponding to the zeroth term
-        integrationFactor[highestDegree] = 0
-        c = c * integrationFactor
-        # If this is an odd order cumsum and there an even number of
-        # coefficients then zero out the coefficients corresponding to
-        # sin(N/2x) term, since this will be zero on the Fourier grid
-        if m & 1 and isEven:
-            c[0, :] = 0
-            c[n, :] = 0
-
-        # fix the constant term
-        c[highestDegree+1, :] = -np.sum(c * (-1+0j)**sumIndices)
-
-        if isEven:
-            c = c[:-1]
-
-        # call simplify
-        # grab lval
-
-        return trigtech(coeffs=c, simplify=False, ishappy=self.ishappy, isreal=self.isReal)
-
-    def innerproduct(self, other):
-        n = len(self) + len(other)
-
-        # Get the values
-        _, fvalues = prolong(self.coeffs, n, self.isReal)
-        _, gvalues = prolong(other.coeffs, n, other.isReal)
-
-        # Compute the quadrature weights
-        w = quadwts(n)
-
-        # Compute the inner product
-        # Inner product in a Hilbert space is (f, conj(g))
-        out = np.matmul(fvalues.T * w, np.conj(gvalues))
-
-        # FIXME for array valued trigtechs!
-        if np.all(self.isReal * other.isReal):
-            out = np.real(out)
-
-        # Force non-negative output when the inputs are the same
-        if self == other:
-            pass
-
-        return out.squeeze()
-
-    def real(self):
-        """ Returns real part of a trigtech """
-        if self.isreal:
-            return self
-
-        fvalues = np.real(self.values)
-        if np.all(fvalues < self.eps):
-            nisReal = np.ones(self.m).astype(bool)
-            return trigtech(values=np.zeros_like(self.values),
-                            coeffs=np.zeros_like(self.coeffs),
-                            ishappy=self.ishappy, simplify=False,
-                            isreal=nisReal)
-        else:
-            ncoeffs = vals2coeffs(fvalues)
-            nisReal = np.ones(self.m).astype(bool)
-
-        return trigtech(values=fvalues, coeffs=ncoeffs, ishappy=self.ishappy,
-                        simplify=False, isreal=nisReal)
-
-    def imag(self):
-        """ Returns imag part of a trigtech """
-        if self.isreal:
-            return trigtech(values=np.zeros_like(self.values),
-                            coeffs=np.zeros_like(self.coeffs),
-                            ishappy=self.ishappy, simplify=False,
-                            isreal=True)
-        else:
-            # compute the imaginary part
-            nvalues = np.imag(self.values)
-            ncoeffs = vals2coeffs(nvalues)
-            nisReal = np.ones(self.m).astype(bool)
-
-            return trigtech(values=nvalues, coeffs=ncoeffs,
-                            ishappy=self.ishappy, simplify=False,
-                            isreal=nisReal)
-
-    def conj(self):
-        id = ~self.isReal
-        if np.all(id):
-            return self
-
-        # other wise construct a new trigtech
-        values = np.copy(self.values)
-        coeffs = np.copy(self.coeffs)
-        values[:, id] = np.conj(values[:, id])
-        coeffs[:, id] = np.flipud(np.conj(coeffs[:, id]))
-        return trigtech(values=values, coeffs=coeffs, ishappy=self.ishappy,
-                        simplify=False, isreal=self.isReal)
 
     def minandmax(self, *args, **kwargs):
         g = chebtec(op=lambda x: self.feval(x))
@@ -715,6 +480,14 @@ class trigtech(np.lib.mixins.NDArrayOperatorsMixin):
                 np.all(self.values == other.values)
 
 
+def implements(np_function):
+    """ Register an __array_function__ implementation """
+    def decorator(func):
+        HANDLED_FUNCTIONS[np_function] = func
+        return func
+    return decorator
+
+
 def trigpoly(n, interval=[-1, 1]):
     # TODO: Deal with other kinds of polynomials
     assert not np.any(np.isinf(interval)), 'Can\'t deal with infinite domains.'
@@ -727,3 +500,266 @@ def trigpoly(n, interval=[-1, 1]):
 
     # construct the polynomial
     return trigtech(coeffs=c)
+
+
+@implements(np.argmax)
+def argmax(f):
+    return np.argmax(f.coeffs)
+
+
+@implements(np.real)
+def real(trig):
+    """ Returns real part of a trigtech """
+    if trig.isreal:
+        return trig
+
+    fvalues = np.real(trig.values)
+    if np.all(fvalues < trig.eps):
+        nisReal = np.ones(trig.m).astype(bool)
+        return trigtech(values=np.zeros_like(trig.values),
+                        coeffs=np.zeros_like(trig.coeffs),
+                        ishappy=trig.ishappy, simplify=False,
+                        isreal=nisReal)
+    else:
+        ncoeffs = vals2coeffs(fvalues)
+        nisReal = np.ones(trig.m).astype(bool)
+
+    return trigtech(values=fvalues, coeffs=ncoeffs, ishappy=trig.ishappy,
+                    simplify=False, isreal=nisReal)
+
+
+@implements(np.imag)
+def imag(trig):
+    """ Returns real part of a trigtech """
+    if trig.isreal:
+        return trigtech(values=np.zeros_like(trig.values),
+                        coeffs=np.zeros_like(trig.coeffs),
+                        ishappy=trig.ishappy, simplify=False,
+                        isreal=True)
+    else:
+        # compute the imaginary part
+        nvalues = np.imag(trig.values)
+        ncoeffs = vals2coeffs(nvalues)
+        nisReal = np.ones(trig.m).astype(bool)
+
+        return trigtech(values=nvalues, coeffs=ncoeffs,
+                        ishappy=trig.ishappy, simplify=False,
+                        isreal=nisReal)
+
+
+@implements(np.conj)
+def conj(trig):
+    id = ~trig.isReal
+    if np.all(id):
+        return trig
+
+    # other wise construct a new trigtech
+    values = np.copy(trig.values)
+    coeffs = np.copy(trig.coeffs)
+    values[:, id] = np.conj(values[:, id])
+    coeffs[:, id] = np.flipud(np.conj(coeffs[:, id]))
+    return trigtech(values=values, coeffs=coeffs, ishappy=trig.ishappy,
+                    simplify=False, isreal=trig.isReal)
+
+
+@implements(np.diff)
+def diff(f, n=1, axis=0):
+    """ Compute the n-th derivative of the trigtech f """
+    assert axis == 0, 'Axis other than zero not implemented yet!'
+
+    m = f.n
+    c = f.coeffs  # TODO call simplify!
+
+    if m & 1:
+        waveNumber = np.expand_dims(np.arange(-(m-1)/2, m/2), axis=1)
+    else:
+        waveNumber = np.expand_dims(np.arange(-m/2, m/2), axis=1)
+
+    # derivative in Fourier space
+    c = c * (1j * np.pi * waveNumber)**n
+    return trigtech(coeffs=c, ishappy=f.ishappy, isreal=f.isReal, simplify=False)
+
+
+@implements(np.sum)
+def sum(f, axis=0, **kwargs):
+    """ Definite integral of a trigtech f on the interval [-1, 1].
+
+    If f is an array-valued trigtech, then the result is a row vector
+    containing the definite integrals of each column.
+
+    """
+    assert axis == 0, 'Axis other than zero not implemented yet!'
+    n = f.n
+    out = 2 * f.coeffs[None, floor((n+2)/2)-1, :]
+    out[:, f.isReal] = np.real(out[:, f.isReal])
+    return out.squeeze()
+
+
+@implements(np.cumsum)
+def cumsum(f, m=1, **kwargs):
+    """ Indefinite integral of a trigtech F, whose mean is zero, with the constant of
+    integration chosen such as F(-1) = 0. If the mean is not zero, the result would no longer
+    be periodic thus an error is thrown.
+
+    If the trigtech of length n is represented by the truncated series
+
+        sum_{k = -(n-1)/2}^{(n-1)/2} c_k exp(i*pi*kx)
+
+    its integral is represented with a trigtech of length n given by
+
+        sum_{k = -(n-1)/2}^{(n-1)/2} b_k exp(i*pi*kx)
+
+    where b_0 is determined from the constant of integration as
+
+        b_0 = sum_{k=-(n-1)/2}^{(n-1)/2} (-1)^k / (i pi k) c_k
+
+    with c_0 = 0. The other coefficients are given by
+
+        b_k = c_k / (i pi k).
+
+    """
+    c = f.coeffs
+    n = f.n
+    isEven = np.remainder(n, 2) == 0
+
+    # Index of the constant coefficients
+    if isEven:
+        ind = n//2 + 1
+    else:
+        ind = (n+1)//2
+
+    # check that the mean of the trigtech is zero. If it is not, then throw an error.
+    if np.any(np.abs(f.coeffs[ind, :])) > 1e1*f.vscale*f.eps:
+        raise RuntimeError("Indefinite integrals are only possible for trigtech objects with zero mean!")
+
+    # throw error that this is only possible for mean zero trigtechs
+    if isEven:
+        # set coeff corresponding to the constant mode to zero:
+        c[n//2, :] = 0
+        # expand the coefficients to be symmetric (see above discussion)
+        c[0, :] = 0.5 * c[0, :]
+        c = np.vstack((c, c[0, :]))
+        highestDegree = n//2
+    else:
+        c[(n+1)//2, :] = 0
+        highestDegree = (n-1)//2
+
+    # loop over integration factor for each coefficient
+    sumIndices = np.expand_dims(np.arange(-highestDegree, highestDegree+1), axis=1)
+    integrationFactor = (-1j/sumIndices/np.pi)**m
+    # zero out the one corresponding to the zeroth term
+    integrationFactor[highestDegree] = 0
+    c = c * integrationFactor
+    # If this is an odd order cumsum and there an even number of
+    # coefficients then zero out the coefficients corresponding to
+    # sin(N/2x) term, since this will be zero on the Fourier grid
+    if m & 1 and isEven:
+        c[0, :] = 0
+        c[n, :] = 0
+
+    # fix the constant term
+    c[highestDegree+1, :] = -np.sum(c * (-1+0j)**sumIndices)
+
+    if isEven:
+        c = c[:-1]
+
+    # call simplify
+    # grab lval
+
+    return trigtech(coeffs=c, simplify=False, ishappy=f.ishappy, isreal=f.isReal)
+
+
+@implements(np.inner)
+def inner(trig1, trig2, weighted=False):
+    n = len(trig1) + len(trig2)
+
+    # Get the values
+    _, fvalues = prolong(trig1.coeffs, n, trig1.isReal)
+    _, gvalues = prolong(trig2.coeffs, n, trig2.isReal)
+
+    # Compute the quadrature weights
+    w = quadwts(n)
+
+    # Compute the inner product
+    # Inner product in a Hilbert space is (f, conj(g))
+    out = np.matmul(fvalues.T * w, np.conj(gvalues))
+
+    # FIXME for array valued trigtechs!
+    if np.all(trig1.isReal * trig2.isReal):
+        out = np.real(out)
+
+    # Force non-negative output when the inputs are the same
+    if trig1 == trig2:
+        pass
+
+    return out.squeeze()
+
+
+def innerw(trig1, trig2, weighted=False):
+    return inner(trig1, trig2, weighted=weighted)
+
+
+@implements(np.dot)
+def dot(cheb1, cheb2):
+    return inner(cheb1, cheb2)
+
+
+def diffmat(self, n, k=1):
+        """ Trigonometric differentiation matrix
+
+        maps functions values at N equispaced grid points in [0, 2*pi) to
+        values of the derivative of the Fourier interpolant at those points.
+
+        This should be moved somewhere else!
+        """
+        h = 2*np.pi/n
+
+        # sign
+        sgn = np.expand_dims((-1)**(np.arange(1, n)), axis=1)
+
+        # indices
+        n1 = floor((n-1)/2)
+        n2 = ceil((n-1)/2)
+
+        # grid points on [-1, 0)
+        v = np.expand_dims(np.arange(1, n2+1), axis=1) * h/2
+
+        if k == 0:
+            return np.eye(n)
+        elif k == 1:
+            if n & 1:
+                tmp = 1./np.sin(v)
+                col = np.vstack((0, (np.pi/2)*sgn*np.vstack((tmp, np.flipud(tmp[:n1])))))
+            else:
+                tmp = 1./np.tan(v)
+                col = np.vstack((0, (np.pi/2)*sgn*np.vstack((tmp, -np.flipud(tmp[:n1])))))
+
+            # form the first row
+            row = -col
+
+        elif k == 2:
+            # form columns by flipping trick
+            if n & 1:
+                tmp = (1./np.sin(v)) * (1./np.tan(v))
+                col = np.pi**2 * np.vstack((-np.pi**2/(3*h**2)+1/12, -0.5 * sgn * np.vstack((tmp, -np.flipud(tmp[:n1])))))
+            else:
+                tmp = (1./np.sin(v))**2
+                col = np.pi**2 * np.vstack((-np.pi**2/(3*h**2)-1/6, -0.5 * sgn * np.vstack((tmp, np.flipud(tmp[:n1])))))
+
+            # for the first row
+            row = col
+        else:
+            # Form the first column using fft
+            n3 = (-n/2)*np.remainder(k+1, 1)*np.ones(np.remainder(n+1, 2))
+            waveNumber = 1j*np.hstack((np.arange(n1+1), n3, np.arange(-n1, 0)))
+            col = np.pi**k * np.real(ifft(waveNumber**k * fft(np.eye(1, n))))
+
+            # for the first row
+            if k & 1:
+                col = np.hstack((0, col[0, 1:]))
+                row = -col
+            else:
+                row = col
+
+        # form the differentiation matrix which is toeplitz
+        return LA.toeplitz(col, row)

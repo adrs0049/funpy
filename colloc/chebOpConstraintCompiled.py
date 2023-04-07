@@ -7,12 +7,13 @@ from cheb.detail import polyval
 from fun import Fun
 from colloc.chebcolloc.chebcolloc2 import chebcolloc2
 
+
 class ChebOpConstraintCompiled:
     def __init__(self, source, *args, **kwargs):
         self.dimension = np.atleast_1d(kwargs.get('dimension', 1))
         self.domain = np.asarray(kwargs.get('domain', [-1, 1]))
         self.source = source
-        self.n = kwargs.pop('n', 2**12)
+        self.n = kwargs.pop('n', 2**15)
         self.m = kwargs.pop('m', 2)
 
         self.constraints = self.source.constraints if self.source is not None else []
