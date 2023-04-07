@@ -1,8 +1,15 @@
 Funpy
 =========
 
-Extends the NumPy API to work with functions. The code and its structure take
-inspiration from chebfun.
+Extends the NumPy API to work with functions. The code and its structure are inspired by 
+[Chebfun](https://www.chebfun.org/).
+
+So far this has been a learning project, and a project used to teach and do a little bit of
+research. Both the Chebyshev and Fourier spectral collocation methods work well enough to carry out
+continuation for PDEs. The ultraspherical collocation method (introduced by Townsend and Olver) has
+been used and tested the most.
+
+But as with all software the current state leaves much to be desired.
 
 Goal
 -------
@@ -57,9 +64,9 @@ ToDo
 8. Improve `sympy` code, in particular fix the "compilation" of non-local equations.
 9. Complete continuation code in this repository.
 10. Clean-up the many bolted on features in the main operator class, collocators, and nonlinear solvers.
-11. Lazy evaluations of arithmetic operations? How to implement something like this in python? Is it even possible?
+11. Lazy evaluations of arithmetic operations?
 12. Lots of other things need fixing and improving!
-13. Replace the slow QR based Newton-Gauss solver with one based on the Schur trick and iterative solvers.
+
 
 Functions
 -------------------
@@ -142,20 +149,8 @@ Three nonlinear solvers are available:
 2. QNERR (ERRor-based Quasi-Newton algorithm) see P. Deuflhard 2011
 3. NLEQ-ERR (ERRor-based Damped Newton algorithm) see P. Deuflhard 2011
 
-### Linear solvers
-
-Most linearly solvers used are from the `scipy` linear algebra suite, and
-available for use by the nonlinear solver. All internal linear operators are
-implemented based on the `LinearOperator` class from `pylops`. Thus, these
-matrices are sparse, and support for Krylov subspace methods exist.
-
-1. LGMRES
-2. GCROTMK (unstable)
-3. SparseQR from suite-sparse (slow due to required matrix format changes)
-4. SparseSolve (umfpack)
-5. QR-Cholesky - solver which applies the Moore-Penrose inverse to
-   underdetermined linear systems. Used for Newton-Gauss continuation. Both
-   sparse and dense versions available. Slow has O(n^3) complexity.
+Linear solvers 
+-----------------
 
 Continuation
 -----------------
