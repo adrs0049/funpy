@@ -1,15 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import numpy as onp
+import numpy as np
 
-from fun import Fun
-from colloc.tools import execute_pycode
 from colloc.chebcolloc.chebcolloc2 import chebcolloc2
-from ac.gen import CodeGeneratorBackend
-
-# Import auto differentiation
-import jax.numpy as np
 
 
 class ChebOpConstraint:
@@ -27,14 +21,14 @@ class ChebOpConstraint:
         """
         self.functional = kwargs.get('op', None)  # applied to the variable to get values
         self.ns = kwargs.pop('ns', None)
-        self.values     = onp.atleast_1d(kwargs.get('values', 0.0))  # constraint on the result of the functional
+        self.values     = np.atleast_1d(kwargs.get('values', 0.0))  # constraint on the result of the functional
         # TODO: see whether we can get rid of this silly domain requirement
         self.domain = kwargs.pop('domain', [-1, 1])
         self.compiled = None
 
     def append(self, func, value=0):
-        self.functional = onp.vstack((self.functional, func))
-        self.values = onp.vstack((self.values, value))
+        self.functional = np.vstack((self.functional, func))
+        self.values = np.vstack((self.values, value))
 
     def disc(self, u):
         return chebcolloc2(values=u, domain=self.domain)

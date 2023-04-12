@@ -5,17 +5,18 @@ import numpy as np
 import sympy as syp
 import datetime
 
-from sympy import symbols, simplify, Function
+# from sympy import symbols, simplify, Function
 from sympy.matrices import zeros, ones
-from sympy import sympify, latex, pprint
-from IPython.display import display
+# from sympy import sympify, latex, pprint
+# from IPython.display import display
 
 from ac.support import Namespace
 from ac.gen import CodeGeneratorBackend
 
 from cheb.cbcode import cpcode
-from cheb.odecode import odecode
-from colloc.tools import execute_pycode, sympy_base_program, convolve
+# from cheb.odecode import odecode
+from .source.support import sympy_base_program, convolve
+from .tools import execute_pycode
 
 
 class Source:

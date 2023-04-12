@@ -1,11 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import numpy as onp
-import jax.numpy as np
+import numpy as np
+# import jax.numpy as np
 import scipy.linalg as LA
-from scipy.sparse import eye, csr_matrix, bmat
-from sparse.csr import delete_rows_csr
 
 from colloc.valsDiscretization import valsDiscretization
 from colloc.chebcolloc.baryDiffMat import diffmat
@@ -60,10 +58,10 @@ class chebcolloc2(valsDiscretization):
         domain = self.domain
         n = self.dimension
         if k == 0:
-            return eye(onp.sum(n))
+            return eye(np.sum(n))
 
         # assuming that we only have on interval
-        blocks = onp.empty(self.numIntervals, dtype=object)
+        blocks = np.empty(self.numIntervals, dtype=object)
         for i in range(self.numIntervals):
             length = domain[i+1] - domain[i]
             blocks[i] = diffmat(self.x, k=k) * (2/length)**k

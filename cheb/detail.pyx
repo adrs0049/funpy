@@ -21,9 +21,7 @@ from scipy.sparse import spdiags, eye, triu
 
 # TYPE DEFINITIONS
 cb_t = np.double
-ccb_t = np.complex
 ctypedef np.double_t DTYPE_t
-ctypedef np.complex_t CTYPE_t
 
 # Helper functions
 cdef inline DTYPE_t r(DTYPE_t e1, DTYPE_t tol):

@@ -1,20 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import numpy as onp
-import scipy.linalg as LA
+import numpy as np
 from scipy.sparse import diags
 
 from cheb.chebpts import chebpts
-from colloc.chebcolloc.baryDiffMat import diffmat
 from colloc.OpDiscretization import OpDiscretization
-
-# Import auto differentiation
-from jax.config import config
-# Otherwise linearisation of the BC is very inaccurate.
-config.update("jax_enable_x64", True)
-import jax.numpy as np
-from jax import grad, jit, vmap
 
 HANDLED_FUNCTIONS = {}
 
@@ -34,7 +25,7 @@ class valsDiscretization(OpDiscretization):
         # generate a bunch of useful points
         self.x, self.w, self.v, _ = chebpts(self.values.shape[0], interval=self.domain,
                                             type=self.type)
-        self.dimension = onp.atleast_1d(self.values.shape[0])
+        self.dimension = np.atleast_1d(self.values.shape[0])
 
     def __call__(self, y):
         """ Evaluates the value collocation at the points y """
@@ -67,7 +58,7 @@ class valsDiscretization(OpDiscretization):
         return self[self.ipos-1]
 
     def points(self, pgen):
-        dim = onp.sum(self.dimension)
+        dim = np.sum(self.dimension)
         return pgen(dim)
 
     def mult(self, f):
@@ -78,23 +69,23 @@ class valsDiscretization(OpDiscretization):
         """ Discretize the right hand side of a linear system """
         xOut = self.equationPoints()
 
-        blocks = onp.empty((1, 1), dtype=object)
+        blocks = np.empty((1, 1), dtype=object)
         for i in range(1):
             blocks[i, i] = self.eval(blocks[i, i], xOut)
 
         # create matrix
-        b = onp.bmat(blocks)
+        b = np.bmat(blocks)
 
         # prepend the values of the constraints and continuity conditions
         if self.source.constraints:
-            b = onp.vstack((self.constraint.values, b))
+            b = np.vstack((self.constraint.values, b))
 
         return b
 
     def instantiate(self):
         # Move this somewhere else
-        M = onp.empty((1, 1), dtype=object)
-        S = onp.empty((1, 1), dtype=object)
+        M = np.empty((1, 1), dtype=object)
+        S = np.empty((1, 1), dtype=object)
 
         # Currently only has support for one ODE - nothing fancy yet
         for i in range(self.numIntervals):
@@ -105,13 +96,14 @@ class valsDiscretization(OpDiscretization):
 
     def getConstraints(self, n):
         nc = len(self.constraints)
-        blocks = onp.empty(nc, dtype=object)
+        blocks = np.empty(nc, dtype=object)
 
         for i, constraint in enumerate(self.constraints):
             constraint.domain = self.domain
 
             # create derivative of the block
-            dfunc = grad(constraint)
+            # dfunc = grad(constraint)
+            assert False, 'FIXME!'
 
             # Force float64 here -> otherwise we encounter quite massive rounding errors!
             blocks[i] = np.expand_dims(dfunc(np.zeros((n, self.m), dtype=np.float64)).copy().flatten(order='F'), axis=0)
@@ -127,13 +119,13 @@ class valsDiscretization(OpDiscretization):
 
 
 """ Decorator to register onp functions """
-def implements(onp_function):
+def implements(np_function):
     def decorator(func):
-        HANDLED_FUNCTIONS[onp_function] = func
+        HANDLED_FUNCTIONS[np_function] = func
         return func
     return decorator
 
 
-@implements(onp.diff)
+@implements(np.diff)
 def diff(f, k=1, dim=0, *args, **kwargs):
     return f.diff(k=k, axis=dim)

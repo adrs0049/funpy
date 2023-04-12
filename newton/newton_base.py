@@ -4,7 +4,7 @@
 from math import sqrt
 import warnings
 
-from strenum import StrEnum
+from enum import StrEnum
 
 import numpy as np
 

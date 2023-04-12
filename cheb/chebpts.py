@@ -1,18 +1,15 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import numpy as onp
+import numpy as np
 import warnings
-from scipy.fftpack import ifft, fft, dct, idct, idst, ifftshift
+from scipy.fft import ifft
 from functools import lru_cache
-
-# Import auto differentiation
-import jax.numpy as np
 
 """ Barycentric weights """
 @lru_cache(maxsize=25)
 def bary_weights(N):
-    c = onp.hstack((onp.ones(N-1), 0.5))
+    c = np.hstack((np.ones(N-1), 0.5))
     c[-2::-2] = -1
     c[0] *= 0.5
     return c
@@ -21,15 +18,15 @@ def bary_weights(N):
 @lru_cache(maxsize=25)
 def quadwts(N):
     if N == 0:
-        return onp.empty()
+        return np.empty()
     elif N == 1:
-        return onp.array([2.])
+        return np.array([2.])
 
-    c = 2./onp.hstack((1, 1 - onp.arange(2, N, 2)**2))
-    c = onp.hstack((c, c[1:onp.floor(N/2).astype(int)][::-1]))
+    c = 2./np.hstack((1, 1 - np.arange(2, N, 2)**2))
+    c = np.hstack((c, c[1:np.floor(N/2).astype(int)][::-1]))
     w = ifft(c)
     w[0] = 0.5 * w[0]
-    w = onp.hstack((w, w[0]))
+    w = np.hstack((w, w[0]))
     return w.real
 
 """ Scale Chebyshev nodes to a domain [a, b] """
@@ -50,18 +47,18 @@ def scaleWeights(w, interval):
     if a == -1 and b == 1:
         return w
 
-    return 0.5 * onp.diff(interval) * w
+    return 0.5 * np.diff(interval) * w
 
 """ Barycentric weights for re-sampling for second kind points """
 def barymat_impl(y, x, w):
     # need to extend dimensions of both arrays
-    y = onp.expand_dims(y, axis=1)
-    x = onp.expand_dims(x, axis=0)
+    y = np.expand_dims(y, axis=1)
+    x = np.expand_dims(x, axis=0)
 
     P = y - x  # All y(j) - x(k)
-    P = onp.expand_dims(w, axis=0) / P  # All w(k) / (y(j) - x(k))
-    P = P / onp.expand_dims(np.sum(P, axis=1), axis=1)  # Normalization
-    P[onp.isnan(P)] = 1.
+    P = np.expand_dims(w, axis=0) / P  # All w(k) / (y(j) - x(k))
+    P = P / np.expand_dims(np.sum(P, axis=1), axis=1)  # Normalization
+    P[np.isnan(P)] = 1.
     return P
 
 def barymat(y, x, w):
@@ -78,7 +75,7 @@ def chebpts_type1_compute(N):
     elif N == 1:
         return [0]
     else:
-        return onp.sin(onp.pi * onp.arange(-N+1, N, 2) / (2. * N))
+        return np.sin(np.pi * np.arange(-N+1, N, 2) / (2. * N))
 
 @lru_cache(maxsize=25)
 def chebpts_type2_compute(N):
@@ -87,7 +84,7 @@ def chebpts_type2_compute(N):
     elif N == 1:
         return [0]
     else:
-        return onp.sin(onp.pi * onp.arange(-N+1, N, 2) / (2. * (N - 1)))
+        return np.sin(np.pi * np.arange(-N+1, N, 2) / (2. * (N - 1)))
 
 """ Functions to compute everything associated with type-1 points """
 def chebpts_type1(N, interval=None):
@@ -101,7 +98,7 @@ def chebpts_type1(N, interval=None):
         x = [0]
         w = [2]
         v = [1]
-        t = [0.5 * onp.pi]
+        t = [0.5 * np.pi]
     else: # general case
         x = chebpts_type1_compute(N)
 
@@ -118,9 +115,9 @@ def chebpts_type1(N, interval=None):
         v = bary_weights(N)
 
         # angles
-        t = onp.pi * onp.flip(onp.arange(0, N, 1)) / (N - 1)
+        t = np.pi * np.flip(np.arange(0, N, 1)) / (N - 1)
 
-    return onp.asarray(x), onp.asarray(w), onp.asarray(v), onp.asarray(t)
+    return np.asarray(x), np.asarray(w), np.asarray(v), np.asarray(t)
 
 """ Functions to compute everything associated with type-2 points """
 def chebpts_type2(N, interval=None):
@@ -134,7 +131,7 @@ def chebpts_type2(N, interval=None):
         x = [0]
         w = [2]
         v = [1]
-        t = [0.5 * onp.pi]
+        t = [0.5 * np.pi]
     else: # general case
         x = chebpts_type2_compute(N)
 
@@ -150,9 +147,9 @@ def chebpts_type2(N, interval=None):
         v = bary_weights(N)
 
         # angles
-        t = onp.pi * onp.flip(onp.arange(0, N, 1)) / (N - 1)
+        t = np.pi * np.flip(np.arange(0, N, 1)) / (N - 1)
 
-    return onp.asarray(x), onp.asarray(w), onp.asarray(v), onp.asarray(t)
+    return np.asarray(x), np.asarray(w), np.asarray(v), np.asarray(t)
 
 def chebpts(N, interval=[-1,1], type=2):
     if type == 1:

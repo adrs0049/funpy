@@ -7,14 +7,14 @@ import numpy as np
 import h5py as h5
 from fun import Fun, zeros
 
-from colloc.ultraS.ultraS import ultraS
-from colloc.trigspec.trigspec import trigspec
-from colloc.realDiscretization import realDiscretization
-from colloc.source.compiler import Source
-from colloc.LinSys import LinSys
-from colloc.BiLinSys import BiLinSys
-from colloc.function import Function
-from colloc.adapt import SolverAdaptive
+from .ultraS.ultraS import ultraS
+from .trigspec.trigspec import trigspec
+from .realDiscretization import realDiscretization
+from .source.compiler import Source
+from .LinSys import LinSys
+from .BiLinSys import BiLinSys
+from .function import Function
+from .adapt import SolverAdaptive
 
 from newton.newton import Newton
 from states.base_state import BaseState
