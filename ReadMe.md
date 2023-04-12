@@ -36,6 +36,12 @@ In the folder `cheb` execute
     python setup.py build_ext --inplace
 ```
 
+### Dependencies
+
+1. pylops
+2. python 3.11 (due to strEnum)
+
+
 Status
 --------
 
