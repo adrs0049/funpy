@@ -3,29 +3,21 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 import scipy
-import scipy.linalg as LA
 import scipy.sparse.linalg as LAS
-from copy import deepcopy
-from sparse.csr import eliminate_zeros_csr
 
-from fun import Fun, h1norm, norm
-from cheb.chebpts import quadwts
-from cheb.diff import computeDerCoeffs
-from states.State import NonlinearFunction, ContinuationState
-from states.pseudo_arclength import PseudoArcContinuationCorrector
-from nlep.nullspace import right_null_vector
-from newton.deflated_residual import DeflatedResidual
+from fun import Fun
+from vectorspaces import ContinuationState
 
 SMALL=1.0e-150
 EPMACH=1.0e-17
 THETA_MAX=0.5
 
+# FIXME
 def scaled_norm2(v, scale):
     n = v.shape[0]
     t = v / scale
     rval = np.dot(t, t)
     return np.sqrt(rval / n)
-
 
 def norm2(v):
     n = v.shape[0]

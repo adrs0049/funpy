@@ -3,18 +3,13 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from ac.support import Namespace
-from fun import Fun
+from .source.support import execute_pycode
+from .bilinOp import BiLinOp
+from .rhs import Residual
+from .pDerivative import DerivativeFunctional
+from .LinSysBase import LinSysBase
 
-from colloc.chebOpConstraint import ChebOpConstraint
-from colloc.tools import execute_pycode
-from colloc.linOp import LinOp
-from colloc.bilinOp import BiLinOp
-from colloc.rhs import Residual
-from colloc.pDerivative import DerivativeFunctional
-from colloc.LinSysBase import LinSysBase
-
-from states.tp_state import TwoParameterState
+from vectorspaces import TwoParameterState
 
 
 class BiLinSys(LinSysBase):

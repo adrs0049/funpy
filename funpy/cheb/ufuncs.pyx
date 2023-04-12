@@ -11,25 +11,25 @@ cimport cython
 from numbers import Number
 from scipy.fft import ifft, fft, irfft, rfft
 
-from cheb.chebpy import chebtec
-from trig.trigtech import trigtech
+from .chebtech import chebtech
+from ..trig.trigtech import trigtech
 
 cimport detail
 
 
 def negative(x, **kwargs):
     # Create the new function
-    if not isinstance(x, chebtec):
+    if not isinstance(x, chebtech):
         return np.negative(x, **kwargs)
     else:
-        return chebtec(coeffs=-1 * x.coeffs, simplify=False, eps=x.eps,
+        return chebtech(coeffs=-1 * x.coeffs, simplify=False, eps=x.eps,
                        maxLength=x.maxLength, ishappy=x.ishappy)
 
 def positive(x, **kwargs):
     return x
 
 def absolute(x, **kwargs):
-    return chebtec(op=lambda y: np.abs(x(y)), minSamples=x.n,
+    return chebtech(op=lambda y: np.abs(x(y)), minSamples=x.n,
                    maxLength=2**10, eps=x.eps)
 
 def power(x1, x2, **kwargs):
@@ -41,7 +41,7 @@ def power(x1, x2, **kwargs):
         # Do nothing just return the function
         if x2 == 1.0:
             return x1
-        return chebtec(op=lambda x: np.float_power(x1(x), x2), minSamples=x1.n, eps=x1.eps)
+        return chebtech(op=lambda x: np.float_power(x1(x), x2), minSamples=x1.n, eps=x1.eps)
     else:
         return NotImplemented
 
@@ -67,16 +67,16 @@ def add(x1, x2, **kwargs):
         ishappy = x1.ishappy
         eps = x1.eps
 
-    # If one of the arguments is a trigtech -> build a chebtec and then call multiply
+    # If one of the arguments is a trigtech -> build a chebtech and then call multiply
     elif isinstance(x1, trigtech):
         eps = max(x1.eps, x2.eps)
-        x1_cheb = chebtec(op=lambda x: x1.feval(x), eps=eps)
+        x1_cheb = chebtech(op=lambda x: x1.feval(x), eps=eps)
         result = add(x1_cheb, x2, **kwargs)
         return trigtech(op=lambda x: result.feval(x), eps=eps)
 
     elif isinstance(x2, trigtech):
         eps = max(x1.eps, x2.eps)
-        x2_cheb = chebtec(op=lambda x: x2.feval(x), eps=eps)
+        x2_cheb = chebtech(op=lambda x: x2.feval(x), eps=eps)
         result = add(x1, x2_cheb, **kwargs)
         return trigtech(op=lambda x: result.feval(x), eps=eps)
 
@@ -126,7 +126,7 @@ def add(x1, x2, **kwargs):
         if isinstance(x1, trigtech) or isinstance(x2, trigtech):
             return trigtech(coeffs=c, simplify=False, ishappy=ishappy, eps=eps)
         else:
-            return chebtec(coeffs=c, simplify=False, ishappy=ishappy, eps=eps)
+            return chebtech(coeffs=c, simplify=False, ishappy=ishappy, eps=eps)
 
 def subtract(x1, x2, **kwargs):
     return add(x1, negative(x2), **kwargs)
@@ -214,16 +214,16 @@ def multiply(x1, x2, **kwargs):
         ishappy = x1.ishappy
         eps = x1.eps
 
-    # If one of the arguments is a trigtech -> build a chebtec and then call multiply
+    # If one of the arguments is a trigtech -> build a chebtech and then call multiply
     elif isinstance(x1, trigtech):
         eps = max(x1.eps, x2.eps)
-        x1_cheb = chebtec(op=lambda x: x1.feval(x), eps=eps)
+        x1_cheb = chebtech(op=lambda x: x1.feval(x), eps=eps)
         result = multiply(x1_cheb, x2, **kwargs)
         return trigtech(op=lambda x: result.feval(x), eps=eps)
 
     elif isinstance(x2, trigtech):
         eps = max(x1.eps, x2.eps)
-        x2_cheb = chebtec(op=lambda x: x2.feval(x), eps=eps)
+        x2_cheb = chebtech(op=lambda x: x2.feval(x), eps=eps)
         result = multiply(x1, x2_cheb, **kwargs)
         return trigtech(op=lambda x: result.feval(x), eps=eps)
 
@@ -231,7 +231,7 @@ def multiply(x1, x2, **kwargs):
     # the size of the chebpy object as element-wise multiplication in
     # coefficient space.
     elif isinstance(x2, type(x1)):
-        # Multiplication with other chebtec
+        # Multiplication with other chebtech
         if x1.n == 1:  # x1 is a constant function
             return multiply(x2, x1.coeffs, **kwargs)
         elif x2.n == 1:  # x2 is a constant function
@@ -264,7 +264,7 @@ def multiply(x1, x2, **kwargs):
         out[0].eps = eps
         return out[0]
     else:
-        return chebtec(coeffs=c, simplify=False, ishappy=ishappy, eps=eps)
+        return chebtech(coeffs=c, simplify=False, ishappy=ishappy, eps=eps)
 
 def divide(x1, x2, **kwargs):
     return true_divide(x1, x2, **kwargs)
@@ -279,7 +279,7 @@ def true_divide(x1, x2, **kwargs):
     # Deal with this first!
     if isinstance(x1, Number):
         eps = x2.eps
-        fun = chebtec(op=lambda x: np.divide(x1, x2(x)), minSamples=2 * x2.n, eps=eps)
+        fun = chebtech(op=lambda x: np.divide(x1, x2(x)), minSamples=2 * x2.n, eps=eps)
         if out is not None:
             out[0].coeffs = fun.coeffs
             return out[0]
@@ -308,7 +308,7 @@ def true_divide(x1, x2, **kwargs):
             c /= np.tile(x2, (x1.n, 1))
     elif isinstance(x2, type(x1)):
         eps = max(x1.eps, x2.eps)
-        fun = chebtec(op=lambda x: np.divide(x1(x), x2(x)),
+        fun = chebtech(op=lambda x: np.divide(x1(x), x2(x)),
                       minSamples=x1.n + x2.n, eps=eps)
         if out is not None:
             out[0].coeffs = fun.coeffs
@@ -321,4 +321,4 @@ def true_divide(x1, x2, **kwargs):
         out[0].eps = eps
         return out[0]
     else:
-        return chebtec(coeffs=c, ishappy=x1.ishappy, eps=eps)
+        return chebtech(coeffs=c, ishappy=x1.ishappy, eps=eps)

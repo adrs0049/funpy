@@ -3,10 +3,10 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from ac.gen import CodeGeneratorBackend
+from .gen import CodeGeneratorBackend
 
-from colloc.source.DiffOperatorSource import DiffOperatorSource
-from colloc.source.IntegralOperatorSource import IntegralOperatorSource
+from .DiffOperatorSource import DiffOperatorSource
+from .IntegralOperatorSource import IntegralOperatorSource
 
 
 class OperatorSourceBlock:

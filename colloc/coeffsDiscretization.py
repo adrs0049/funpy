@@ -1,23 +1,21 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import numpy as np
 import itertools
 from copy import copy
+import numpy as np
 
 try:
     from scipy.sparse import csr_array
 except ImportError:
     from scipy.sparse import csr_matrix as csr_array
 
-import scipy.sparse.linalg as LAS
+from funpy import Fun, Functional
+from funpy.cheb import polyval, polyfit
+from funpy.cheb import quadwts
 
-from fun import Fun
-from functional import Functional
-from colloc.OpDiscretization import OpDiscretization
-from colloc.chebcolloc.chebcolloc2 import chebcolloc2
-from cheb.detail import polyval, polyfit
-from cheb.chebpts import quadwts
+from .OpDiscretization import OpDiscretization
+from .chebcolloc.chebcolloc2 import chebcolloc2
 
 
 class coeffsDiscretization(OpDiscretization):

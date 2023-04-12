@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from cheb.detail import polyval
-from cheb.chebpts import quadwts
+
+from .cheb.detail import polyval
+from .cheb.chebpts import quadwts
 
 HANDLED_FUNCTIONS = {}
 

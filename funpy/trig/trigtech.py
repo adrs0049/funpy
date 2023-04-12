@@ -1,23 +1,24 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
+from copy import deepcopy
+from math import floor, ceil
+
 import numpy as np
 import scipy.linalg as LA
-from copy import deepcopy
-from numbers import Number
-from math import floor, ceil
 from scipy.fft import ifft, fft
 
-from cheb.detail import standardChopCmplx
-from cheb.chebpy import chebtec
-from trig.trig_simplify import simplify_coeffs
-from cheb.refine import FunctionContainer
-from trig.refine import Refine, RefineBase
-from trig.eval import horner
-from trig.transform import coeffs2vals, vals2coeffs
-from trig.trigpts import trigpts, quadwts
-from trig.trig_simplify import prolong
+# Local imports
+from ..cheb.detail import standardChopCmplx
+from ..cheb.chebtech import chebtech
+from ..cheb.refine import FunctionContainer
 
+from .trig_simplify import simplify_coeffs
+from .refine import Refine, RefineBase
+from .eval import horner
+from .transform import coeffs2vals, vals2coeffs
+from .trigpts import trigpts, quadwts
+from .trig_simplify import prolong
 
 # Directory for numpy implementation of functions
 HANDLED_FUNCTIONS = {}
@@ -134,7 +135,7 @@ class trigtech(np.lib.mixins.NDArrayOperatorsMixin):
         return self.coeffs
 
     def __array_ufunc__(self, numpy_ufunc, method, *inputs, **kwargs):
-        import trig.ufuncs as cp_funcs
+        from . import ufuncs as cp_funcs
         #out = kwargs.get('out', ())
         # for x in inputs + out:
         #     if not isinstance(x, (np.ndarray, Number, type(self))):
@@ -419,7 +420,7 @@ class trigtech(np.lib.mixins.NDArrayOperatorsMixin):
         return horner(x, self.coeffs, self.isReal).squeeze()
 
     def minandmax(self, *args, **kwargs):
-        g = chebtec(op=lambda x: self.feval(x))
+        g = chebtech(op=lambda x: self.feval(x))
         return g.minandmax(*args, **kwargs)
 
     def compose(self, op, g=None):

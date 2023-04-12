@@ -3,12 +3,12 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from ac.gen import CodeGeneratorBackend
 
 from sympy import sympify
 from sympy.matrices import zeros, ones
 
-from colloc.source.OperatorSourceBlock import OperatorSourceBlock
+from .gen import CodeGeneratorBackend
+from .OperatorSourceBlock import OperatorSourceBlock
 
 
 class OperatorSource:

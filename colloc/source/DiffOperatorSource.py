@@ -1,10 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import itertools
 from sympy import Derivative, Function
 
-from cheb.cbcode import cpcode
+from funpy import cpcode
 
 
 class DiffOperatorSource:

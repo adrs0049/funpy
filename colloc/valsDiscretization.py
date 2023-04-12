@@ -4,8 +4,9 @@
 import numpy as np
 from scipy.sparse import diags
 
-from cheb.chebpts import chebpts
-from colloc.OpDiscretization import OpDiscretization
+from funpy.cheb import chebpts
+
+from .OpDiscretization import OpDiscretization
 
 HANDLED_FUNCTIONS = {}
 

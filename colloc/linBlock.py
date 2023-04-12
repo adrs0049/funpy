@@ -2,12 +2,9 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-import re
-from numbers import Number
-from ac.support import Namespace
+from funpy import asfun
 
-from fun import Fun, asfun
-from colloc.quasiOpBlock import QuasiOpBlock
+from .quasiOpBlock import QuasiOpBlock
 
 
 class LinBlock:

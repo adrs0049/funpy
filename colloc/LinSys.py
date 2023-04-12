@@ -2,19 +2,17 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from ac.support import Namespace
-from fun import Fun
 
-from colloc.chebOpConstraint import ChebOpConstraint
-from colloc.chebOpConstraintCompiled import ChebOpConstraintCompiled
-from colloc.tools import execute_pycode
-from colloc.LinSysBase import LinSysBase
-from colloc.linOp import LinOp
-from colloc.bilinOp import BiLinOp
-from colloc.rhs import Residual
-from colloc.linearFunctional import linearFunctional
-from colloc.bilinearForm import bilinearForm
-from colloc.pDerivative import DerivativeFunctional
+from .chebOpConstraint import ChebOpConstraint
+from .chebOpConstraintCompiled import ChebOpConstraintCompiled
+from .source.support import execute_pycode
+from .LinSysBase import LinSysBase
+from .linOp import LinOp
+# from .bilinOp import BiLinOp
+from .rhs import Residual
+from .linearFunctional import linearFunctional
+from .bilinearForm import bilinearForm
+from .pDerivative import DerivativeFunctional
 
 
 class LinSys(LinSysBase):

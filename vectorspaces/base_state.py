@@ -7,12 +7,11 @@ from numbers import Number
 
 import numpy as np
 
-import fun as fp
-from fun import norm2, minandmax
+import funpy as fp
+from funpy import norm2, minandmax
 
-from states.namespace import Namespace
-from states.parameter import Parameter
-from support.cached_property import lazy_property
+from .namespace import Namespace
+from .parameter import Parameter
 
 
 HANDLED_FUNCTIONS = {}
@@ -72,28 +71,28 @@ class BaseState(np.lib.mixins.NDArrayOperatorsMixin):
         except KeyError:
             pass
 
-    @lazy_property
+    @property
     def number_real(self):
         return self.signature.count(BaseState.SpaceType.REAL)
 
-    @lazy_property
+    @property
     def number_cheb(self):
         return self.signature.count(BaseState.SpaceType.CHEB)
 
-    @lazy_property
+    @property
     def number_trig(self):
         return self.signature.count(BaseState.SpaceType.TRIG)
 
-    @lazy_property
+    @property
     def number_func(self):
         return self.signature.count(BaseState.SpaceType.CHEB) + \
                 self.signature.count(BaseState.SpaceType.TRIG)
 
-    @lazy_property
+    @property
     def columns(self):
         return np.sum([func.m for func in self.funcs])
 
-    @lazy_property
+    @property
     def rank(self):
         return np.product(self.funcs[0].shape)
 

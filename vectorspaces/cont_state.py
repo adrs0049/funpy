@@ -3,14 +3,13 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 from copy import deepcopy
-from numbers import Number
 import warnings
 
-from fun import Fun
-from fun import h1norm, norm, norm2, sturm_norm, sturm_norm_alt
-from states.namespace import Namespace
-from states.base_state import BaseState
-from states.parameter import Parameter
+from funpy import Fun, h1norm, norm, norm2, sturm_norm, sturm_norm_alt
+
+from .namespace import Namespace
+from .base_state import BaseState
+from .parameter import Parameter
 
 
 class ContinuationState(BaseState):

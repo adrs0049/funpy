@@ -4,7 +4,8 @@
 import numpy as np
 import scipy.linalg as LA
 
-from cheb.chebpts import bary_weights
+from funpy.cheb import bary_weights
+
 
 def diffmat(x, k=1):
     """ Compute the k-th order Barycentric differentiation matrix.

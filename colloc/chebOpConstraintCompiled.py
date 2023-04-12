@@ -3,9 +3,10 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from cheb.detail import polyval
-from fun import Fun
-from colloc.chebcolloc.chebcolloc2 import chebcolloc2
+from funpy import Fun
+from funpy.cheb import polyval
+
+from .chebcolloc.chebcolloc2 import chebcolloc2
 
 
 class ChebOpConstraintCompiled:

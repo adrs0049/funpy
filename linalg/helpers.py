@@ -7,93 +7,6 @@ import scipy as sp
 from math import sqrt, log
 from scipy.sparse.linalg import splu
 
-from fun import minandmax
-from cheb.detail import polyval
-from cheb.chebpts import quadwts
-
-
-def findNextPowerOf2(n):
-    if n <= 1:
-        return 2
-
-    n = n - 1
-    while n & n - 1:
-        n = n & n - 1
-
-    return n << 1
-
-
-def round_up(num, divisor):
-    return ceil(num / divisor) * divisor
-
-
-def secant(s1, d1, s2, d2):
-    """ The function carries out one iteration of the secant method. The iteration
-        is given by the equation:
-
-                                s_{n}  -  s_{n-1}
-        s_{n + 1} = s_{n} -   ---------------------    q(s_{n - 1})
-                             q(s_{n}) - q(s_{n - 1})
-
-        where q(s) is the function whose zero we are seeking.
-
-        Argument:
-            s1 -> s_{n - 1}
-            s2 -> s_{n}
-
-            d2 -> q(s_{n})
-            d1 -> q(s_{n - 1})
-    """
-    return s2 - d2 * (s2 - s1) / (d2 - d1)
-
-
-def find_nearest(array, value):
-    array = np.asarray(array)
-    idx = (np.abs(array - value)).argmin()
-    return array[idx]
-
-
-def find_nearest_idx(array, value):
-    array = np.asarray(array)
-    return (np.abs(array - value)).argmin()
-
-
-def orientation_y(u):
-    """
-        Computes the orientation on the function space
-
-        Y = { (u, v) : \int u + v dx = 0 }
-
-        in which an element is defined as:
-
-            positive <=> ∫ u > 0
-            negative <=> ∫ u < 0
-
-        Note that the only element for which the integral vanishes is given by (u, v) = (0, 0).
-    """
-    # print('u:', u)
-    if u.shape[0] == 1:
-        return np.sign(u[0].coeffs)
-    return np.sign(u[0].lval()).squeeze()
-
-    # sum = 0.5 * np.real(np.sum(u[0] - u[1])).squeeze()
-    # print('sum = ', sum)
-    # if np.abs(sum) <= np.finfo(float).eps:
-    #     return 0
-    # return np.sign(sum)
-
-
-def moving_average(a, n=3):
-    ret = np.cumsum(a, dtype=float)
-    ret[n:] = ret[n:] - ret[:-n]
-    return ret[n-1:] / n
-
-
-def theta_interp(s1, s2, kappa, kc=0.85, wd=1):
-    f1 = lambda k: 0.5 * (np.tanh(-(k - kc) / 0.3) + 1)
-    f2 = lambda k: 0.5 * (np.tanh( (k - kc) / 0.3) + 1)
-    return np.round(f1(kappa) * s1 + f2(kappa) * s2, decimals=3)
-
 
 def minimumSwaps(arr):
     """
@@ -286,16 +199,6 @@ def detH(A):
         d[k+1] = A[k, k] * d[k] + np.sum(signs[:k][::-1] * A[:k, k] * p[:k])
 
     return d[k+1]
-
-
-def functional(function):
-    rescaleFactor = 0.5 * np.diff(function.domain)
-    psic = np.empty(function.m, dtype=object)
-    w = quadwts(function.n)
-    for j, col in enumerate(function):
-        psic[j] = np.rot90(polyval(w * col.values.T), -1)
-    psic = np.hstack(psic) * rescaleFactor
-    return psic
 
 
 class Determinant:

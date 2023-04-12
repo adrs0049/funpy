@@ -14,7 +14,7 @@ except ImportError:
     from scipy.sparse import csr_matrix as csr_array
 
 from linalg.qr import qr
-from support.tools import minimumSwaps
+from .helpers import minimumSwaps
 
 
 def safecall(f, name, *args, **kwargs):

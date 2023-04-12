@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from ac.support import Namespace
 
-from colloc.chebOpConstraint import ChebOpConstraint
-from colloc.tools import execute_pycode, pycode_imports
-from colloc.linOp import LinOp
-from colloc.rhs import Residual
+from vectorspaces import Namespace, TwoParameterState
 
-from states.tp_state import TwoParameterState
+from .chebOpConstraint import ChebOpConstraint
+from .source.support import execute_pycode
+from .linOp import LinOp
+from .rhs import Residual
 
 
 class DerivativeFunctional:

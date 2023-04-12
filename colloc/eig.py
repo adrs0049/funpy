@@ -1,15 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import datetime
 import numpy as np
-import sympy as syp
 import scipy.linalg as LA
-import scipy.sparse.linalg as LAS
 from pylops import LinearOperator
 
-from colloc.chebOp import ChebOp
-from fun import zeros
+from funpy import zeros
 
 
 class GeneralizedEigenvalueOp(LinearOperator):

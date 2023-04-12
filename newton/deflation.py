@@ -3,8 +3,7 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from fun import h1norm
-from support.Functional import Functional
+from funpy import h1norm, Functional
 
 
 def deflation(u, known_solutions=[], shift=1.0, power=2.0):

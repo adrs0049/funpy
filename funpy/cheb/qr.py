@@ -3,9 +3,12 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 import scipy.linalg as LA
-from cheb.chebpts import chebpts
-from cheb.detail import polyfit
-from qr import abstractQR
+
+from .chebpts import chebpts
+from .detail import polyfit
+
+from ..qr import abstractQR
+
 
 def qr(f, eps=1.48e-8):
     """ Returns the QR factorisation of F such that F = Q * R, where the

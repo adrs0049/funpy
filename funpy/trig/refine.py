@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from trig.trigpts import trigpts
+from .trigpts import trigpts
+
 
 def expand(array, axis=1):
     if len(array.shape) == 1:

@@ -4,14 +4,12 @@
 import numpy as np
 import scipy.sparse.linalg as LAS
 
-from fun import Fun
-from newton.deflation import deflation, deflation_linearization
-from linalg.schur_solve import LinearSolverNGSchur
-from newton.lops.FrechetDeflated import FrechetDeflated
-from newton.lops.FrechetDeflatedPrecond import FrechetDeflatedPrecond
 from linalg.exact_linear_solver import ExactLinearSolver
-from states.deflation_state import DeflationState
-from states.parameter import Parameter
+from vectorspaces import DeflationState
+
+from ..deflation import deflation, deflation_linearization
+from ..lops.FrechetDeflated import FrechetDeflated
+from ..lops.FrechetDeflatedPrecond import FrechetDeflatedPrecond
 
 
 class NewtonSystem:

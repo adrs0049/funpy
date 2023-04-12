@@ -2,17 +2,14 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from math import sqrt
 
-import states.base_state as sp
+from .newton_base import NewtonBase, NewtonErrors
+from .newton_standard import newton_standard
+from .giant import giant_gbit
+from .qnerr import qnerr
+from .nleq_err import nleq_err
 
-from newton.newton_base import NewtonBase, NewtonErrors
-from newton.newton_standard import newton_standard
-from newton.giant import giant_gbit
-from newton.qnerr import qnerr
-from newton.nleq_err import nleq_err
-
-from newton.sys.NewtonSystem import NewtonSystem
+from .sys.NewtonSystem import NewtonSystem
 
 
 class Newton(NewtonBase):

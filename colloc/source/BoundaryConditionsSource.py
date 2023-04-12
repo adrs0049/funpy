@@ -1,8 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import numpy as np
-from ac.gen import CodeGeneratorBackend
+from .gen import CodeGeneratorBackend
 
 
 class BoundaryConditionsSource:

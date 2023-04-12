@@ -3,9 +3,9 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from colloc.linBlock import LinBlock
-from colloc.quasiOp import QuasiOp
-from colloc.tools import execute_pycode
+from .linBlock import LinBlock
+from .quasiOp import QuasiOp
+from .source.support import execute_pycode
 
 
 class LinOp:

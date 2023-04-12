@@ -3,8 +3,7 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from colloc.linBlock import LinBlock
-from colloc.tools import execute_pycode
+from .source.support import execute_pycode
 
 
 class QuasiOp:

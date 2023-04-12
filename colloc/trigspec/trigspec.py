@@ -2,17 +2,16 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-import scipy.linalg as LA
 import scipy.sparse as sps
-import scipy.sparse.linalg as LAS
 from scipy.sparse import eye, csr_matrix
-from sparse.csr import eliminate_zeros
 
-from fun import Fun
-from fun import norm
-from colloc.coeffsDiscretization import coeffsDiscretization
-from colloc.trigspec.matrices import diffmat, intmat, multmat
-from colloc.trigspec.matrices import blockmat, aggmat
+from funpy import Fun
+
+from ..coeffsDiscretization import coeffsDiscretization
+from ..sparse.csr import eliminate_zeros
+
+from .matrices import diffmat, intmat, multmat
+from .matrices import blockmat, aggmat
 
 
 class trigspec(coeffsDiscretization):

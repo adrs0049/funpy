@@ -11,17 +11,17 @@ except ImportError:
     from scipy.sparse import csr_matrix as csr_array
     from scipy.sparse import csc_matrix as csc_array
 
-from sparse.csr import delete_rows_csr, eliminate_zeros
+from ..sparse.csr import delete_rows_csr, eliminate_zeros
 
-from fun import Fun
-from ultra import ultra2ultra
+from funpy import Fun, ultra2ultra
+from funpy.cheb import quadwts
+from funpy.cheb import polyval
 
 from colloc.coeffsDiscretization import coeffsDiscretization
-from colloc.ultraS.matrices import convertmat, convertmat_inv, diffmat, multmat
-from colloc.ultraS.matrices import blockmat, realmat, intmat, zeromat
-from colloc.ultraS.matrices import reduceOne
-from cheb.chebpts import quadwts
-from cheb.detail import polyval
+
+from .matrices import convertmat, convertmat_inv, diffmat, multmat
+from .matrices import blockmat, realmat, intmat, zeromat
+from .matrices import reduceOne
 
 
 class ultraS(coeffsDiscretization):

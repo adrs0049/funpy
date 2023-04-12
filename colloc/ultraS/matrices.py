@@ -13,13 +13,15 @@ except ImportError:
     from scipy.sparse import lil_matrix as lil_array
 
 from scipy.sparse import spdiags, eye, issparse
-from sparse.csr import delete_rows_csr, eliminate_zeros
-from sparse.csc import delete_cols_csc
 
-from colloc.ultraS.transform import sptoeplitz, sptoeplitz_fast, sphankel
-from colloc.ultraS.transform import spconvert, spconvert_inv
-from cheb.chebpts import chebpts_type2, barymat, quadwts
-from cheb.detail import standardChop
+from funpy.cheb import chebpts_type2, barymat, quadwts
+from funpy.cheb import standardChop
+
+from ..sparse.csr import delete_rows_csr, eliminate_zeros
+from ..sparse.csc import delete_cols_csc
+
+from .transform import sptoeplitz, sptoeplitz_fast, sphankel
+from .transform import spconvert, spconvert_inv
 
 CACHE_SIZE = 25
 

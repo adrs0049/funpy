@@ -3,13 +3,9 @@
 # Author: Andreas Buttenschoen
 from pylops import LinearOperator
 import numpy as np
-import scipy.sparse.linalg as LAS
-import scipy.linalg as LA
 
-from fun import Fun, h1norm, norm, norm2
-from support.Functional import Functional
-from cheb.chebpts import quadwts
-from cheb.diff import computeDerCoeffs
+from funpy import Fun, h1norm, norm, norm2, Functional
+from funpy.cheb import quadwts
 
 
 class FrechetDeflated(LinearOperator):

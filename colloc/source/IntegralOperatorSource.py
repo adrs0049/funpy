@@ -1,10 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import itertools
-from sympy import Integral
-
-from cheb.cbcode import cpcode
+from funpy import cpcode
 
 
 class IntegralOperatorSource:

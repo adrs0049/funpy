@@ -8,9 +8,10 @@ try:
 except ImportError:
     from scipy.sparse import csr_matrix as csr_array
 
-from fun import Fun
-from colloc.OpDiscretization import OpDiscretization
-from colloc.projection import RectangularProjection
+from funpy import Fun
+
+from .OpDiscretization import OpDiscretization
+from .projection import RectangularProjection
 
 
 class realDiscretization(OpDiscretization):

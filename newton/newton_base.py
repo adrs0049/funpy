@@ -1,9 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-from math import sqrt
-import warnings
-
 from enum import StrEnum
 
 import numpy as np

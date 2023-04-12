@@ -4,6 +4,7 @@
 import numpy as np
 from math import ceil
 
+
 def horner_vec_cmplx(x, c):
     n = c.shape[0]
     nValsX = x.size

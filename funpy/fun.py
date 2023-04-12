@@ -1,24 +1,21 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import numpy as np
-import h5py as h5
+
 from numbers import Number
 from copy import deepcopy
-import matplotlib.pyplot as plt
+import numpy as np
 
 # Local imports
-import cheb.chebpy as cheb
-from ultra import ultra2ultra
+from .cheb.chebtech import chebtech
+from .mapping import Mapping
+from .trig.trigtech import trigtech
+from .functional import Functional
+from .support.cached_property import lazy_property
+from .trig.operations import circconv, circshift, trig_adhesion
 
-from cheb.chebpy import chebtec
-from trig.trigtech import trigtech
-from functional import Functional
-from support.cached_property import lazy_property
-from trig.operations import circconv, circshift, trig_adhesion
-
-import trig.trigtech as trig
-from mapping import Mapping
+from .trig.trigtech import trigtech
+from .ultra import ultra2ultra
 
 HANDLED_FUNCTIONS = {}
 SMALL_EPS = 1e-8
@@ -62,14 +59,14 @@ class Fun(np.lib.mixins.NDArrayOperatorsMixin):
             self.__construct(op=op, hscale=self.hscale, *args, **kwargs)
 
         # Make sure onefun is a function object!
-        assert isinstance(self.onefun, chebtec) or isinstance(self.onefun, trigtech), ''
+        assert isinstance(self.onefun, chebtech) or isinstance(self.onefun, trigtech), ''
 
     def __construct(self, *args, **kwargs):
         fun_type = kwargs.pop('type', 'cheb')
         if fun_type == 'trig':
             self.onefun = trigtech(*args, **kwargs)
         else:  # we will simply default to cheb
-            self.onefun = chebtec(*args, **kwargs)
+            self.onefun = chebtech(*args, **kwargs)
 
     @property
     def istrig(self):
@@ -83,7 +80,7 @@ class Fun(np.lib.mixins.NDArrayOperatorsMixin):
     def ndim(self):
         return self.onefun.ndim
 
-    """ Return the points at which the chebtec is sampled at """
+    """ Return the points at which the chebtech is sampled at """
     @property
     def x(self):
         return self.mapping.fwd(self.onefun.x)
@@ -226,7 +223,7 @@ class Fun(np.lib.mixins.NDArrayOperatorsMixin):
         assert values.size % n_funs == 0, 'Array must fit!'
 
         if type == 'cheb':
-            nf = chebtec.from_values(values, simplify=False)
+            nf = chebtech.from_values(values, simplify=False)
         elif type == 'trig':
             nf = trigtech.from_values(values, simplify=False)
         else:
@@ -615,16 +612,20 @@ def prolong(f, Nout):
 
 
 def plot(f, npts=1000, *args, **kwargs):
+    import matplotlib.pyplot as plt
     xs = np.linspace(*f.domain, npts)
     fig, ax = plt.subplots(*args, **kwargs)
     ax.plot(xs, f(xs))
+    return fig
 
 
 def plot_values(f, *args, **kwargs):
+    import matplotlib.pyplot as plt
     fig, ax = plt.subplots(*args, **kwargs)
     n, m = f.shape
     for i in range(m):
         ax.scatter(f.x, f.values[:, i])
+    return fig
 
 
 def plotcoeffs_trig(f, loglog=False):
@@ -667,6 +668,7 @@ def plotcoeffs_cheb(f, loglog=False):
 
 
 def plotcoeffs(f, loglog=False, *args, **kwargs):
+    import matplotlib.pyplot as plt
     if f.istrig:
         k, c = plotcoeffs_trig(f, loglog=loglog)
     else:
@@ -674,3 +676,4 @@ def plotcoeffs(f, loglog=False, *args, **kwargs):
 
     fig, ax = plt.subplots(*args, **kwargs)
     ax.scatter(k, c)
+    return fig

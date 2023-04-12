@@ -1,12 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import itertools
-from sympy import Derivative, Integral
+from funpy import cpcode
 
-from ac.gen import CodeGeneratorBackend
-
-from cheb.cbcode import cpcode
+from .gen import CodeGeneratorBackend
 
 
 class NonlinearFunctionSource:

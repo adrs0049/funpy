@@ -2,9 +2,7 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from ac.support import Namespace
-
-from fun import Fun
+from vectorspaces import Namespace
 
 
 class LinSysBase:

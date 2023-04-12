@@ -9,7 +9,7 @@ import scipy.linalg as LA
 import scipy.sparse.linalg as LAS
 
 from linalg.qr import qr
-from support.tools import minimumSwaps, detH, slogdet_hessenberg
+from .helpers import minimumSwaps, detH, slogdet_hessenberg
 
 
 class QRCholesky:

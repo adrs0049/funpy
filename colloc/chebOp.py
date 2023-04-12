@@ -5,7 +5,8 @@ import time
 from copy import deepcopy
 import numpy as np
 import h5py as h5
-from fun import Fun, zeros
+
+from funpy import Fun, zeros
 
 from .ultraS.ultraS import ultraS
 from .trigspec.trigspec import trigspec
@@ -16,9 +17,7 @@ from .BiLinSys import BiLinSys
 from .function import Function
 from .adapt import SolverAdaptive
 
-from newton.newton import Newton
-from states.base_state import BaseState
-from states.deflation_state import DeflationState
+from newton import Newton
 
 
 class ChebOp:

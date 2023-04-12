@@ -2,17 +2,11 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-import scipy
 import scipy.sparse as sps
-import scipy.linalg as LA
-import scipy.sparse.linalg as LAS
 from sparse.csr import csr_vappend
 from pylops import LinearOperator
 
-from states.State import ContinuationState
-from support.Functional import Functional
 from newton.deflated_residual import DeflatedResidual
-from cheb.chebpts import quadwts
 
 
 class NewtonGaussContinuationCorrectorPrecond(LinearOperator):

@@ -3,11 +3,8 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 import re
-from numbers import Number
-from ac.support import Namespace
 
-from fun import Fun
-from colloc.quasiOpBlock import QuasiOpBlock
+from .quasiOpBlock import QuasiOpBlock
 
 
 class BiLinBlock:

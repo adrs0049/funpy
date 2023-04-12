@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import itertools
 import numpy as np
 import sympy as syp
 import datetime
@@ -9,24 +8,24 @@ import datetime
 from sympy import symbols, simplify, cancel, Function, Integral
 from sympy.matrices import zeros, ones
 from sympy.solvers.deutils import ode_order
-from sympy import sympify, latex, pprint, preorder_traversal
+from sympy import sympify, preorder_traversal
 from IPython.display import display
 
-from states.namespace import Namespace
-from ac.gen import CodeGeneratorBackend
+from funpy import cpcode, odecode
+from vectorspaces import Namespace
 
-from cheb.cbcode import cpcode
-from cheb.odecode import odecode
-from colloc.tools import execute_pycode
-from colloc.source.support import sympy_base_program, convolve, term_simplify
-from colloc.source.OperatorSource import OperatorSource
-from colloc.source.NonlinearOperatorSource import NonlinearFunctionSource
-from colloc.source.NonlinearVectorFunctionSource import NonlinearVectorFunctionSource
-from colloc.source.DiffOperatorSource import DiffOperatorSource
-from colloc.source.IntegralOperatorSource import IntegralOperatorSource
-from colloc.source.function import DummyFunction
-from colloc.source.BoundaryConditionsSource import BoundaryConditionsSource
-from colloc.source.BoundaryConditionSource import BoundaryConditionSource
+from .gen import CodeGeneratorBackend
+
+from .support import execute_pycode
+from .support import sympy_base_program, convolve, term_simplify
+from .OperatorSource import OperatorSource
+from .NonlinearOperatorSource import NonlinearFunctionSource
+from .NonlinearVectorFunctionSource import NonlinearVectorFunctionSource
+from .DiffOperatorSource import DiffOperatorSource
+from .IntegralOperatorSource import IntegralOperatorSource
+from .function import DummyFunction
+from .BoundaryConditionsSource import BoundaryConditionsSource
+from .BoundaryConditionSource import BoundaryConditionSource
 
 
 class Source:

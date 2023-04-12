@@ -3,14 +3,13 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 from copy import deepcopy
-from numbers import Number
 
-from fun import Fun
-from fun import h1norm, norm, norm2, sturm_norm, sturm_norm_alt
-from states.base_state import BaseState
-from states.parameter import Parameter
-from support.cached_property import lazy_property
-from states.namespace import Namespace
+from funpy import Fun
+from funpy import h1norm, norm, norm2, sturm_norm, sturm_norm_alt
+
+from .base_state import BaseState
+from .namespace import Namespace
+from .parameter import Parameter
 
 
 class TwoParameterState(BaseState):
@@ -76,7 +75,7 @@ class TwoParameterState(BaseState):
     def flatten(self):
         return np.hstack((self.funcs[0].flatten(), self.reals[0].value, self.reals[1].value))
 
-    @lazy_property
+    @property
     def rank(self):
         return np.product(self.funcs[0].shape) + np.product(self.funcs[1].shape) + 1
 

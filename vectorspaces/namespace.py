@@ -1,8 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import re
-
 
 class Namespace(dict):
     def __init__(self, *args, **kwargs):

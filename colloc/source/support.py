@@ -1,11 +1,13 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
+import re
 import datetime
 import sympy as syp
-from IPython.display import display
 from sympy import oo, integrate, Symbol
-from ac.gen import CodeGeneratorBackend
+
+from IPython.display import display
+from .gen import CodeGeneratorBackend
 
 
 def term_simplify(expr, ratio=1):
@@ -182,3 +184,110 @@ def sympy_rhs_program(eqns):
 
     cg.write('eqn = {0}'.format(matrix_str))
     return cg.end()
+
+def all_keys(dictlist):
+    return set().union(*dictlist)
+
+def parse_parameter(config_line):
+    match = re.search(
+        r"""^          # Anchor to start of line
+        (\s*)          # $1: Zero or more leading ws chars
+        (?:            # Begin group for optional var=value.
+          (\S+)        # $2: Variable name. One or more non-spaces.
+          (\s*=\s*)    # $3: Assignment operator, optional ws
+          (            # $4: Everything up to comment or EOL.
+            [^#\\]*    # Unrolling the loop 1st normal*.
+            (?:        # Begin (special normal*)* construct.
+              \\.      # special is backslash-anything.
+              [^#\\]*  # More normal*.
+            )*         # End (special normal*)* construct.
+          )            # End $4: Value.
+        )?             # End group for optional var=value.
+        ((?:\#.*)?)    # $5: Optional comment.
+        $              # Anchor to end of line""",
+        config_line, re.MULTILINE | re.VERBOSE)
+
+    if match is None:
+        return None
+
+    return match.groups()
+
+
+""" Reads parameter par_name from the config file """
+def parse_config(config_file, par_name):
+    with open(config_file, 'r') as f:
+        content = f.readlines()
+        content = [x.strip() for x in content]
+
+    for line in content:
+        groups = parse_parameter(line)
+
+        if groups is None:
+            continue
+
+        pn        = groups[1]
+        par_value = groups[3]
+
+        if par_name == pn:
+            return float(par_value)
+
+    return None
+
+def get_required_symbols(src, default_value=1.):
+    # find required variables
+    required_vars = []
+
+    # local copy of source
+    rhs = src
+
+    while True:
+        try:
+            # create a local namespace
+            ns = Namespace()
+
+            exec(rhs, ns)
+        except NameError as e:
+            # parse the exception
+            m   = re.search('\'(.+?)\'', e.args[0])
+            var = m.group(1)
+
+            # we found something missing!
+            required_vars.append(var)
+
+            # prepend some value
+            rhs = "{0} = {1}".format(var, default_value) + "; " + rhs
+
+        except Exception as e:
+            raise e
+        else:
+            break
+
+    return set(required_vars)
+
+
+def execute_pycode(pycode, namespace, debug=False):
+    """ Function executes code into a given namespace """
+    if debug: print(pycode)
+
+    # Execute the generate code
+    try:
+        exec(pycode, namespace)
+    except Exception as e:
+        raise e
+
+
+def pycode_imports():
+    cg = CodeGeneratorBackend()
+    cg.begin(tab=4*" ")
+    cg.write('#!/usr/bin/python')
+    cg.write('# -*- coding: utf-8 -*-')
+    cg.write('# author: Andreas Buttenschoen {0}'.format(datetime.datetime.now().year))
+    cg.write('# Do not modify! File auto generated!')
+    cg.write('import numpy')
+    cg.write('import scipy')
+    cg.write('import numpy as np')
+    cg.write('from fun import *')
+    cg.write('')
+    return cg.end()
+
+

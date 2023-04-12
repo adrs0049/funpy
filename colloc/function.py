@@ -1,12 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import numpy as np
-from ac.support import Namespace
+from vectorspaces import Namespace
 
-from fun import Fun
-from colloc.tools import execute_pycode
-from colloc.rhs import Residual
+from .source.support import execute_pycode
+from .rhs import Residual
 
 
 class Function:

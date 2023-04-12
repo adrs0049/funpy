@@ -3,6 +3,7 @@
 #cython: language_level=3
 #cython: annotate=True
 #cython: infer_types=True
+
 import numpy as np
 import scipy.linalg as LA
 import functools
@@ -14,10 +15,12 @@ cimport detail
 # Import this directly -> it's much faster!
 from scipy.fft._pocketfft.pypocketfft import dct
 from scipy.fft import ifft, fft
+from scipy.sparse import spdiags, eye, triu
 
 from libc.math cimport sqrt, abs, log, log10, fmax, round
-from cheb.chebpts import chebpts_type2_compute
-from scipy.sparse import spdiags, eye, triu
+
+# Local imports
+from .chebpts import chebpts_type2_compute
 
 # TYPE DEFINITIONS
 cb_t = np.double

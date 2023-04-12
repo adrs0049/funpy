@@ -3,6 +3,7 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
+
 def quadwts(n):
     """ Quadrature weights for equally spaced points from [-1, 1) """
     return 2/n * np.ones(n)

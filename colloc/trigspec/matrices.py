@@ -4,11 +4,12 @@
 import numpy as np
 from functools import lru_cache
 import scipy.sparse as sps
-from sparse.csr import delete_rows_csr
 from scipy.sparse import spdiags, eye, csr_matrix, lil_matrix, issparse
 
-from colloc.ultraS.transform import sptoeplitz, spconvert, spconvert_inv, sphankel
-from trig.trigpts import quadwts
+from ..sparse.csr import delete_rows_csr
+from ..ultraS.transform import sptoeplitz, spconvert, spconvert_inv, sphankel
+
+from funpy.trig import quadwts
 
 CACHE_SIZE = 25
 

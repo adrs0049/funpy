@@ -16,15 +16,15 @@ except ImportError:
     from scipy.sparse import csr_matrix as csr_array
     from scipy.sparse import csc_matrix as csc_array
 
-from sparse.csr import flip_rows
-from sparse.csc import flip_cols
+from funpy import Fun
+from funpy.cheb import chebtech
+from funpy import Mapping
 
-from fun import Fun
-from mapping import Mapping
+from .sparse.csr import flip_rows
+from .sparse.csc import flip_cols
 
-from cheb.chebpy import chebtec
-from colloc.ultraS.matrices import blockmat
-from colloc.projection import RectangularProjection
+from .ultraS.matrices import blockmat
+from .projection import RectangularProjection
 
 
 class OpDiscretization:

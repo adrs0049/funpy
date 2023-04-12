@@ -1,15 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import numpy as np
-import scipy
-import operator
-import numbers
-import h5py as h5
 from copy import deepcopy
 from numbers import Number
+
+import numpy as np
 from numpy.core.multiarray import normalize_axis_index
-from scipy.fftpack import ifft, fft, dct, idct, idst, ifftshift
 
 try:
     # Import compiled components -> Make sure this happens before all imports below!
@@ -18,30 +14,31 @@ try:
     from cheb.detail import standardChop, prolong, simplify_coeffs, happiness_check
 
 except ImportError:
-    from cheb.build_cheb import build_cheb_module
+    from .build_cheb import build_cheb_module
     build_cheb_module()
 
     # Try the imports again
     try:
-        from cheb.refine import RefineBase, Refine, RefineCompose1, RefineCompose2, FunctionContainer
-        from cheb.detail import polyfit, polyval, clenshaw, roots
-        from cheb.detail import standardChop, prolong, simplify_coeffs, happiness_check
-    except:
-        raise
+        from .refine import RefineBase, Refine, RefineCompose1, RefineCompose2, FunctionContainer
+        from .detail import polyfit, polyval
+        from .detail import clenshaw, roots
+        from .detail import standardChop, prolong, simplify_coeffs, happiness_check
+    except Exception as e:
+        raise e
 
 
 # Local imports
-from support.cached_property import lazy_property
-from cheb.chebpts import chebpts_type2, chebpts_type2_compute, barymat, quadwts
-from cheb.diff import computeDerCoeffs
-import cheb.qr
-from cheb.minmax import minmaxCol
+from ..support.cached_property import lazy_property
+from .chebpts import chebpts_type2, chebpts_type2_compute, barymat, quadwts
+from .diff import computeDerCoeffs
+from .qr import qr
+from .minmax import minmaxCol
 
 # Directory for numpy implementation of functions
 HANDLED_FUNCTIONS = {}
 
 
-class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
+class chebtech(np.lib.mixins.NDArrayOperatorsMixin):
     """ This needs some information still! Currently only type-2 polynomials """
     def __init__(self, op=None, *args, **kwargs):
         """ Improve this so that we can just pass in one object and we figure out what it is """
@@ -129,7 +126,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
             return self.coeffs.flatten(order='F')
 
     def __array_ufunc__(self, numpy_ufunc, method, *inputs, **kwargs):
-        import cheb.ufuncs as cp_funcs
+        from . import ufuncs as cp_funcs
 
         # out = kwargs.get('out', ())
         # TODO: this probably needs to be somewhere else it can't check for trigtech input!
@@ -149,10 +146,10 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
 
             # If we don't have a special implementation we default to evaluating by value!
             if len(inputs) == 1:
-                return chebtec(op=lambda x: numpy_ufunc(inputs[0](x)),
+                return chebtech(op=lambda x: numpy_ufunc(inputs[0](x)),
                                eps=self.eps, maxLength=self.maxLength)
             elif len(inputs) == 2:
-                return chebtec(op=lambda x: numpy_ufunc(inputs[0](x), inputs[1](x)),
+                return chebtech(op=lambda x: numpy_ufunc(inputs[0](x), inputs[1](x)),
                                eps=self.eps, maxLength=self.maxLength)
             else:
                 return NotImplemented
@@ -238,7 +235,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
             if idx.start < 0 or idx.stop > self.m:
                 raise IndexError("The index slice({0:d}, {1:d}) is out of range ({2:d})!".format(idx.start, idx.stop, self.m))
 
-            return chebtec(coeffs=self.coeffs[:, idx], eps=self.eps,
+            return chebtech(coeffs=self.coeffs[:, idx], eps=self.eps,
                            maxLength=self.maxLength, simplify=False,
                            ishappy=self.ishappy)
 
@@ -246,7 +243,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
             if idx < 0 or idx >= self.m:
                 raise IndexError("The index {0:d} is out of range ({1:d})!".format(idx, self.m))
 
-            return chebtec(coeffs=self.coeffs[:, None, idx], eps=self.eps,
+            return chebtech(coeffs=self.coeffs[:, None, idx], eps=self.eps,
                            maxLength=self.maxLength, simplify=False,
                            ishappy=self.ishappy)
         else:
@@ -259,7 +256,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
             return 1
         return self.shape[1]
 
-    """ Return the points at which the chebtec is sampled at """
+    """ Return the points at which the chebtech is sampled at """
     @property
     def x(self):
         return chebpts_type2_compute(self.n)
@@ -282,7 +279,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
     def get_values(self):
         return polyval(self.coeffs)
 
-    """ Construct a chebtech from a callable op """
+    """ Construct a chebtechh from a callable op """
     def populate(self, refine):
         while True:
             values, giveUp = refine(self)
@@ -300,13 +297,13 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
                 self.prolong(cutoff+1)
                 break
 
-    """ Evaluates chebtec at x = -1 """
+    """ Evaluates chebtech at x = -1 """
     def lval(self):
         c = np.copy(self.coeffs)
         c[1::2] *= -1
         return np.sum(c, axis=0)
 
-    """ Evaluate chebtec at x = 1 """
+    """ Evaluate chebtech at x = 1 """
     def rval(self):
         return np.sum(self.coeffs, axis=0)
 
@@ -315,7 +312,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
         return self.coeffs
 
     def restrict(self, s):
-        """ Restrict the chebtec to a subinterval s """
+        """ Restrict the chebtech to a subinterval s """
         s = np.asanyarray(s)
 
         # check that we really have a subinterval
@@ -340,7 +337,7 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
 
         # generate new coefficients
         coeffs = polyfit(values)
-        return chebtec(coeffs=coeffs, eps=self.eps, simplify=False,
+        return chebtech(coeffs=coeffs, eps=self.eps, simplify=False,
                        maxLength=self.maxLength, ishappy=self.ishappy,
                        hscale=self.hscale)
 
@@ -365,8 +362,8 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
 
     def __call__(self, other):
         """
-        IF other is a ndarray: -> Evaluate the chebtech at those points.
-        IF other is a chebtech: -> Compose the chebtech
+        IF other is a ndarray: -> Evaluate the chebtechh at those points.
+        IF other is a chebtechh: -> Compose the chebtechh
         """
         return self.feval(other)
 
@@ -382,23 +379,23 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
 
     def eval(self, y):
         """ Construct the evaluation operator to compute the values of the
-        chebtech at the points y.
+        chebtechh at the points y.
         """
         x, _, v, _ = self.points()
         # construct
         return barymat(y, x, v)
 
     def flipud(self):
-        """ Flip / reverse a chebtec object such that G(x) = F(-x) for all x in [-1, 1] """
+        """ Flip / reverse a chebtech object such that G(x) = F(-x) for all x in [-1, 1] """
         coeffs = np.copy(self.coeffs)
         coeffs[1::2] *= -1
-        return chebtec(coeffs=coeffs, eps=self.eps, hscale=self.hscale,
+        return chebtech(coeffs=coeffs, eps=self.eps, hscale=self.hscale,
                        simplify=False, ishappy=self.ishappy,
                        maxLength=self.maxLength)
 
     def fliplr(self):
-        """ Flip columns of an array-valued chebtec object. """
-        return chebtec(coeffs=np.fliplr(self.coeffs), eps=self.eps,
+        """ Flip columns of an array-valued chebtech object. """
+        return chebtech(coeffs=np.fliplr(self.coeffs), eps=self.eps,
                        hscale=self.hscale, simplify=False,
                        ishappy=self.ishappy, maxLength=self.maxLength)
 
@@ -434,8 +431,8 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
         return vals, pos
 
     def qr(self, *args, **kwargs):
-        Q, R = funpy.cheb.qr.qr(self, *args, **kwargs)
-        Q = chebtec(coeffs=Q, simplify=False, eps=self.eps, hscale=self.hscale,
+        Q, R = qr(self, *args, **kwargs)
+        Q = chebtech(coeffs=Q, simplify=False, eps=self.eps, hscale=self.hscale,
                     maxLength=self.maxLength, ishappy=self.ishappy)
         return Q, R
 
@@ -452,10 +449,10 @@ class chebtec(np.lib.mixins.NDArrayOperatorsMixin):
 def compose(f, op, g=None):
     if g is None:
         resampler = RefineCompose1(f, op)
-        return chebtec(op=resampler)
+        return chebtech(op=resampler)
     else:
         resampler = RefineCompose2(f, op, g)
-        return chebtec(op=resampler)
+        return chebtech(op=resampler)
 
 
 def implements(np_function):
@@ -473,30 +470,30 @@ def argmax(f):
 
 @implements(np.real)
 def real(cheb):
-    """ Returns real part of a chebtec """
-    return chebtec(coeffs=np.real(cheb.coeffs), simplify=False,
+    """ Returns real part of a chebtech """
+    return chebtech(coeffs=np.real(cheb.coeffs), simplify=False,
                    ishappy=cheb.ishappy, eps=cheb.eps,
                    hscale=cheb.hscale, maxLength=cheb.maxLength)
 
 
 @implements(np.imag)
 def imag(cheb):
-    """ Returns real part of a chebtec """
-    return chebtec(coeffs=np.imag(cheb.coeffs), simplify=False,
+    """ Returns real part of a chebtech """
+    return chebtech(coeffs=np.imag(cheb.coeffs), simplify=False,
                    ishappy=cheb.ishappy, eps=cheb.eps,
                    hscale=cheb.hscale, maxLength=cheb.maxLength)
 
 
 @implements(np.conj)
 def conj(cheb):
-    return chebtec(coeffs=np.conj(cheb.coeffs), simplify=False, eps=cheb.eps,
+    return chebtech(coeffs=np.conj(cheb.coeffs), simplify=False, eps=cheb.eps,
                    ishappy=cheb.ishappy, maxLength=cheb.maxLength,
                    hscale=cheb.hscale)
 
 
 @implements(np.diff)
 def diff(cheb, n=1, axis=0):
-    """ Compute the k-th derivative of the chebtec f """
+    """ Compute the k-th derivative of the chebtech f """
     assert axis == 0, 'Axis other than zero not implemented yet!'
 
     # Simplify the coefficients prior to differentiating
@@ -508,7 +505,7 @@ def diff(cheb, n=1, axis=0):
 
     # return zero if differentiating too much
     if n >= k:
-        return chebtec(coeffs=np.zeros_like(cheb.coeffs), eps=cheb.eps,
+        return chebtech(coeffs=np.zeros_like(cheb.coeffs), eps=cheb.eps,
                        hscale=cheb.hscale, simplify=False,
                        ishappy=cheb.ishappy, maxLength=cheb.maxLength)
 
@@ -517,18 +514,18 @@ def diff(cheb, n=1, axis=0):
     for _ in range(1, n):
         c = computeDerCoeffs(c)
 
-    # This returns a chebtec that has only N - k Chebyshev coefficients
+    # This returns a chebtech that has only N - k Chebyshev coefficients
     # -> note that setting happy will cause the function to be simplified!
-    return chebtec(coeffs=c, ishappy=cheb.ishappy, simplify=False,
+    return chebtech(coeffs=c, ishappy=cheb.ishappy, simplify=False,
                    eps=cheb.eps, hscale=cheb.hscale,
                    maxLength=cheb.maxLength)
 
 
 @implements(np.sum)
 def sum(cheb, axis=0, **kwargs):
-    """ Definite integral of a chebtec f on the interval [-1, 1].
+    """ Definite integral of a chebtech f on the interval [-1, 1].
 
-    If f is an array-valued chebtec, then the result is a row vector
+    If f is an array-valued chebtech, then the result is a row vector
     containing the definite integrals of each column.
 
     """
@@ -552,7 +549,7 @@ def sum(cheb, axis=0, **kwargs):
 
 @implements(np.cumsum)
 def cumsum(cheb, **kwargs):
-    """ Indefinite integral of chebtec f, with the constant of integration
+    """ Indefinite integral of chebtech f, with the constant of integration
         chosen such that f(-1) = 0.
 
         Given a Chebyshev polynomial of length n, we have that
@@ -585,8 +582,8 @@ def cumsum(cheb, **kwargs):
     v[:, 1::2] = -1
     b[0, :] = np.matmul(v, b[1:, :])
 
-    # Create the new chebtec
-    g = chebtec(coeffs=b, eps=cheb.eps, simplify=False,
+    # Create the new chebtech
+    g = chebtech(coeffs=b, eps=cheb.eps, simplify=False,
                 hscale=cheb.hscale, ishappy=cheb.ishappy,
                 maxLength=cheb.maxLength)
 
@@ -671,19 +668,19 @@ def hstack(chebs):
     hscale    = max([cheb.hscale for cheb in chebs])   # TODO this is probably not correct!
     ishappy   = all([cheb.ishappy for cheb in chebs])
 
-    return chebtec(coeffs=coeffs, ishappy=ishappy, simplify=False,
+    return chebtech(coeffs=coeffs, ishappy=ishappy, simplify=False,
                    eps=eps, hscale=hscale,
                    maxLength=maxLength)
 
 
 @implements(np.copy)
 def copy(cheb):
-    return chebtec(coeffs=np.copy(cheb.coeffs), ishappy=cheb.ishappy,
+    return chebtech(coeffs=np.copy(cheb.coeffs), ishappy=cheb.ishappy,
                    simplify=False, eps=cheb.eps, hscale=cheb.hscale,
                    maxLength=cheb.maxLength)
 
 
 # @implements(np.hsplit)
 # def hsplit(cheb):
-#     return [chebtec(coeffs=cheb.coeffs[:, i], ishappy=cheb.ishappy,
+#     return [chebtech(coeffs=cheb.coeffs[:, i], ishappy=cheb.ishappy,
 #                     simplify=True, eps=cheb.eps) for i in range(cheb.size)]

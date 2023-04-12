@@ -1,9 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-from support.tools import findNextPowerOf2
 from copy import deepcopy
 import numpy as np
+
+from .tools import findNextPowerOf2
 
 
 class SolverAdaptive:

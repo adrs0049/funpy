@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from cheb.detail import polyfit, polyval
-from cheb.chebpts import chebpts_type2_compute
+
+from .detail import polyfit, polyval
+from .chebpts import chebpts_type2_compute
 
 
 class FunctionContainer:
@@ -22,7 +23,7 @@ class FunctionContainer:
 
 
 """ Base class for resampling and refining operations  """
-class RefineBase(object):
+class RefineBase:
     def __init__(self, op, *args, **kwargs):
         self.minSamples = max(9, kwargs.pop('minSamples', 9))
         self.op = op

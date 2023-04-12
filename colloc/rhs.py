@@ -1,12 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-import warnings
 import numpy as np
 from numbers import Number
-from colloc.tools import execute_pycode
 
-from states.tp_state import TwoParameterState
+from .source.support import execute_pycode
 
 
 class Residual:

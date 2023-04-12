@@ -5,10 +5,11 @@ import numpy as np
 # import jax.numpy as np
 import scipy.linalg as LA
 
-from colloc.valsDiscretization import valsDiscretization
-from colloc.chebcolloc.baryDiffMat import diffmat
-from cheb.chebpy import chebtec
-from cheb.chebpts import chebpts_type1, chebpts_type2, barymat
+from ..valsDiscretization import valsDiscretization
+from .baryDiffMat import diffmat
+
+from funpy.cheb import chebtech
+from funpy.cheb import chebpts_type1, chebpts_type2, barymat
 
 
 class chebcolloc2(valsDiscretization):
@@ -21,7 +22,7 @@ class chebcolloc2(valsDiscretization):
 
     @property
     def tech(self):
-        return chebtec
+        return chebtech
 
     def toValues(self):
         " Converts a chebtech2 to values at 2nd kind points"""
@@ -58,7 +59,7 @@ class chebcolloc2(valsDiscretization):
         domain = self.domain
         n = self.dimension
         if k == 0:
-            return eye(np.sum(n))
+            return np.eye(np.sum(n))
 
         # assuming that we only have on interval
         blocks = np.empty(self.numIntervals, dtype=object)
