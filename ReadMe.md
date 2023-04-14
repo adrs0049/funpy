@@ -26,15 +26,9 @@ Future: Clean up all the mess? Fix the many API issues that exist. Extensions to
 Installation
 --------
 
-There are currently no working `setup.py`. Just place the folder in your python
-path or use the included `.bashrc' to append the current directory to the
-pythonpath. Note that a few cython extensions are required.
-
-In the folder `cheb` execute
-
-```
-    python setup.py build_ext --inplace
-```
+There are currently no working `setup.py`. Things will work when you place your folder in your
+python path. The few cython extensions will be compiled automatically on import. The first import
+may be slow for this reason.
 
 ### Dependencies
 
@@ -56,20 +50,16 @@ ToDo
 1. Write a proper setup.py.
 2. Better unit testing.
 3. Object constructors are a mess, make more use of classmethods!
-4. Fix module import, and have all the usual package things good to go i.e.\
-   (`__doc__` strings) etc. Also make importing work in expected ways i.e.\
+4. Improve module import, and have all the usual package things good to go i.e.\
+   (`__doc__` strings) etc. 
 
-   ```
-   import funpy as fp
-   fun = fp.Fun(op=lambda x: x)
-   ```
-
-5. Remove dependency to jax, it's rather irritating.
+5. Fix fallout from removing jax from colloc.
 6. Improve `sympy` code, in particular fix the "compilation" of non-local equations.
 7. Complete continuation code in this repository.
 8. Clean-up the many bolted on features in the main operator class, collocators, and nonlinear solvers.
 9. Lazy evaluations of arithmetic operations?
-10. Lots of other things need fixing and improving!
+10. Check that the series truncation code works as expected, in particular is it scale invariant?
+11. Lots of other things need fixing and improving!
 
 
 Functions
@@ -121,9 +111,8 @@ op.eqn = ['epsilon^2 * diff(u, x, 2) + (b + gamma * u^m / (1 + u^m)) * v - I * u
           'D *         diff(v, x, 2) - (b + gamma * u^m / (1 + u^m)) * v + I * u']
 
 # Boundary conditions
-# FIXME this is no longer the case -> Also interpreted by sympy.
-op.bcs = [lambda u, v: np.diff(u)(0), lambda u, v: np.diff(u)(1),
-          lambda u, v: np.diff(v)(0), lambda u, v: np.diff(v)(1)]
+# FIXME Currently same BCs applied at both sides of domain.
+op.bcs = ['diff(u, x, 1)', 'diff(v, x, 1)']
 
 # Additional constraints e.g. mass constraints
 op.cts = ['0.5 * (K - int(u) - int(v))',
