@@ -1,9 +1,9 @@
 Funpy
 =========
 
-Extends the NumPy API to work with functions. The code and its structure are inspired 
-by and translated from [Chebfun](https://www.chebfun.org/), and Approximation Theory and
-Approximation Practice.
+Extends the NumPy API to work with functions. The code and its structure are inspired
+by and translated from [Chebfun](https://www.chebfun.org/), and the book
+[Approximation Theory and Approximation Practice](https://www.chebfun.org/ATAP).
 
 So far this has been a learning project, and a project used to teach and do a little bit of
 research. Both the Chebyshev and Fourier spectral collocation methods work well enough to carry out
