@@ -51,7 +51,7 @@ ToDo
 2. Better unit testing.
 3. Object constructors are a mess, make more use of classmethods!
 4. Improve module import, and have all the usual package things good to go i.e.\
-   (`__doc__` strings) etc. 
+   (`__doc__` strings) etc.
 
 5. Fix fallout from removing jax from colloc.
 6. Improve `sympy` code, in particular fix the "compilation" of non-local equations.
@@ -130,7 +130,7 @@ must be given to ChebOp upon construction (Future: Can we infer this somehow?).
    `jax`. It would be really nice to get rid of this dependency.
 
 3. Additional constraints can be specified in `cts`. For instance, mass
-   constrains can be defined as in the example above. Note however, that
+   constraints can be defined as in the example above. Note however, that
    currently **no** projections are applied. This may not be correct depending
    on the type of problem you are solving!
 
@@ -143,7 +143,7 @@ Three nonlinear solvers are available:
 2. QNERR (ERRor-based Quasi-Newton algorithm) see P. Deuflhard 2011
 3. NLEQ-ERR (ERRor-based Damped Newton algorithm) see P. Deuflhard 2011
 
-Linear solvers 
+Linear solvers
 -----------------
 
 Continuation
