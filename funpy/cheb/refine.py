@@ -4,7 +4,7 @@
 import numpy as np
 
 from .detail import polyfit, polyval
-from .chebpts import chebpts_type2_compute
+from .pts import chebpts_type2_compute
 
 
 class FunctionContainer:

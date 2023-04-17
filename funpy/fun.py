@@ -7,14 +7,13 @@ from copy import deepcopy
 import numpy as np
 
 # Local imports
-from .cheb.chebtech import chebtech
+from .cheb import chebtech
 from .mapping import Mapping
-from .trig.trigtech import trigtech
+from .trig import trigtech
 from .functional import Functional
-from .support.cached_property import lazy_property
 from .trig.operations import circconv, circshift, trig_adhesion
 
-from .trig.trigtech import trigtech
+from .trig import trigtech
 from .ultra import ultra2ultra
 
 HANDLED_FUNCTIONS = {}
@@ -85,7 +84,7 @@ class Fun(np.lib.mixins.NDArrayOperatorsMixin):
     def x(self):
         return self.mapping.fwd(self.onefun.x)
 
-    @lazy_property
+    @property
     def hscale(self):
         return np.linalg.norm(self.domain, np.inf)
 

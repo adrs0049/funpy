@@ -29,7 +29,7 @@ except ImportError:
 
 # Local imports
 from ..support.cached_property import lazy_property
-from .chebpts import chebpts_type2, chebpts_type2_compute, barymat, quadwts
+from .pts import chebpts_type2, chebpts_type2_compute, barymat, quadwts
 from .diff import computeDerCoeffs
 from .qr import qr
 from .minmax import minmaxCol

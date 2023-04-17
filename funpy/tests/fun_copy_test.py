@@ -11,7 +11,7 @@ import funpy as fp
 from funpy import Fun
 
 
-class TestFunEval:
+class TestFunCopy:
     def test_copy(self):
         ff = lambda x: np.sin(2 * np.pi * x)
         f  = Fun(op=lambda x: np.sin(2 * np.pi * x), type='cheb')

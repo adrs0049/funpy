@@ -21,7 +21,6 @@ class TestFunAddition:
 
     def test_addition_scalar(self):
         fun1 = Fun(op=lambda x: np.ones_like(x), type='cheb')
-        print('fun1 = ', fun1)
         fun2 = fun1 + 2
         fun3 = 2 + fun1
 

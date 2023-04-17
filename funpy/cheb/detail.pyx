@@ -20,7 +20,7 @@ from scipy.sparse import spdiags, eye, triu
 from libc.math cimport sqrt, abs, log, log10, fmax, round
 
 # Local imports
-from .chebpts import chebpts_type2_compute
+from .pts import chebpts_type2_compute
 
 # TYPE DEFINITIONS
 cb_t = np.double

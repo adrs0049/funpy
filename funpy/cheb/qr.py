@@ -4,7 +4,7 @@
 import numpy as np
 import scipy.linalg as LA
 
-from .chebpts import chebpts
+from .pts import chebpts
 from .detail import polyfit
 
 from ..qr import abstractQR

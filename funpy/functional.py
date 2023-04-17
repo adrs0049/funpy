@@ -3,8 +3,8 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from .cheb.detail import polyval
-from .cheb.chebpts import quadwts
+from .cheb import polyval
+from .cheb import quadwts
 
 HANDLED_FUNCTIONS = {}
 

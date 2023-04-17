@@ -7,8 +7,9 @@ from . detail import polyval
 
 from . detail import standardChop
 
-from . chebpts import quadwts
-from . chebpts import barymat
-from . chebpts import bary_weights
-from . chebpts import chebpts_type2, chebpts_type1
+from . pts import quadwts
+from . pts import barymat
+from . pts import bary_weights
+from . pts import chebpts
+from . pts import chebpts_type2, chebpts_type1
 
