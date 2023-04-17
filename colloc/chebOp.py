@@ -17,6 +17,7 @@ from .BiLinSys import BiLinSys
 from .function import Function
 from .adapt import SolverAdaptive
 
+from vectorspaces import BaseState, DeflationState
 from newton import Newton
 
 

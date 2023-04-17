@@ -3,7 +3,10 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 from numpy.testing import assert_, assert_raises, assert_almost_equal
-from fun import Fun
+
+import funpy as fp
+from funpy import Fun
+
 from colloc.chebOp import ChebOp
 
 

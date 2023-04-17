@@ -286,7 +286,8 @@ def pycode_imports():
     cg.write('import numpy')
     cg.write('import scipy')
     cg.write('import numpy as np')
-    cg.write('from fun import *')
+    cg.write('import funpy as fp')
+    cg.write('from funpy import *')
     cg.write('')
     return cg.end()
 

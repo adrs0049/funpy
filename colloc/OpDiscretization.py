@@ -45,7 +45,7 @@ class OpDiscretization:
         self.continuity  = kwargs.pop('continuity', [])
 
         # the return type
-        self.returnTech = chebtec
+        self.returnTech = chebtech
 
         # the projection
         self.projection = None
