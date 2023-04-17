@@ -180,7 +180,7 @@ def multiply(x1, x2, **kwargs):
         v *= x2
 
         # update the is real number
-        is_real = x1.isReal and np.isreal(x2)
+        is_real = x1.isreal and np.isreal(x2)
         ishappy = x1.ishappy
 
     elif isinstance(x2, np.ndarray):
@@ -205,7 +205,7 @@ def multiply(x1, x2, **kwargs):
         c *= x2
         v *= x2
 
-        is_real = x1.isReal and np.isreal(x2)
+        is_real = x1.isreal and np.isreal(x2)
         ishappy = x1.ishappy
 
     # If one of the arguments is a chebtech -> map everything to a chebtech and then map back!
@@ -285,7 +285,7 @@ def multiply(x1, x2, **kwargs):
             c = vals2coeffs(v)
             is_real = np.ones((1, c.shape[1])).astype(bool)
         else:
-            is_real = x1.isReal and x2.isReal
+            is_real = x1.isreal and x2.isreal
 
         # if values are real -> make the result real
         v[:, is_real] = np.real(v[:, is_real])

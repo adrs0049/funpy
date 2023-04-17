@@ -100,8 +100,10 @@ plt.show()
 Periodic functions approximated using Fourier series are supported. A periodic function is
 created by specifying a type when creating a Fun object. Periodic functions are currently
 slower than their Chebyshev counter parts, since less of their operations are implemented
-in cython. **Warning:** The memory layout appears no longer persistent with newer versions of numpy,
-which confuses various cython extensions.
+in cython. **Warning:** Periodic function support has many more rough edges, further
+the memory layout appears to be less persistent in newer versions of numpy, which
+confuses some of the cython extensions. This strongly suggest we finally need to change
+the memory layout.
 
 ```
 import numpy as np

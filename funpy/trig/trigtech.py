@@ -625,12 +625,12 @@ def cumsum(f, m=1, **kwargs):
 
     # Index of the constant coefficients
     if isEven:
-        ind = n//2 + 1
+        ind = n//2
     else:
-        ind = (n+1)//2
+        ind = (n+1)//2 - 1
 
     # check that the mean of the trigtech is zero. If it is not, then throw an error.
-    if np.any(np.abs(f.coeffs[ind, :])) > 1e1*f.vscale*f.eps:
+    if np.any(np.abs(f.coeffs[ind, :]) > 1e1*f.vscale*f.eps):
         raise RuntimeError("Indefinite integrals are only possible for trigtech objects with zero mean!")
 
     # throw error that this is only possible for mean zero trigtechs
@@ -645,6 +645,7 @@ def cumsum(f, m=1, **kwargs):
         c[(n+1)//2, :] = 0
         highestDegree = (n-1)//2
 
+    # TODO silence warning here!
     # loop over integration factor for each coefficient
     sumIndices = np.expand_dims(np.arange(-highestDegree, highestDegree+1), axis=1)
     integrationFactor = (-1j/sumIndices/np.pi)**m
