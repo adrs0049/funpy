@@ -1,4 +1,7 @@
 
+# Make sure this is imported first -> triggers compile!
+from . chebtech import chebtech
+
 from . detail import polyfit
 from . detail import polyval
 

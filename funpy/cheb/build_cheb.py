@@ -5,6 +5,9 @@ import subprocess, sys, os
 
 
 def build_cheb_module():
+    """
+    Why are we doing this compile via a Makefile? This seems complicated.
+    """
     dir_cwd = os.getcwd()
     dir_path = os.path.dirname(os.path.realpath(__file__))
     os.chdir(dir_path)
