@@ -4,12 +4,12 @@
 import numpy as np
 from numbers import Number
 
-from cheb.chebpy import chebtec
-import cheb.ufuncs as cb_funcs
+from ..cheb.chebtech import chebtech
+import funpy.cheb.ufuncs as cb_funcs # This feels wrong!
 
-from trig.trig_simplify import prolong, simplify_coeffs
-from trig.trigtech import trigtech
-from trig.transform import coeffs2vals, vals2coeffs
+from .trig_simplify import prolong, simplify_coeffs
+from .trigtech import trigtech
+from .transform import coeffs2vals, vals2coeffs
 
 
 def negative(x, **kwargs):
@@ -78,10 +78,10 @@ def add(x1, x2, **kwargs):
         # Don't I need to do this?
         ishappy = x1.ishappy
 
-    # If one of the arguments is a chebtec -> map everything to a chebtec and then map back!
-    elif isinstance(x1, chebtec) or isinstance(x2, chebtec):
-        x1_cheb = chebtec(op=lambda x: x1.feval(x))
-        x2_cheb = chebtec(op=lambda x: x2.feval(x))
+    # If one of the arguments is a chebtech -> map everything to a chebtech and then map back!
+    elif isinstance(x1, chebtech) or isinstance(x2, chebtech):
+        x1_cheb = chebtech(op=lambda x: x1.feval(x))
+        x2_cheb = chebtech(op=lambda x: x2.feval(x))
         result = cb_funcs.add(x1_cheb, x2_cheb)
         return trigtech(op=lambda x: result.feval(x))
 
@@ -208,10 +208,10 @@ def multiply(x1, x2, **kwargs):
         is_real = x1.isReal and np.isreal(x2)
         ishappy = x1.ishappy
 
-    # If one of the arguments is a chebtec -> map everything to a chebtec and then map back!
-    elif isinstance(x1, chebtec) or isinstance(x2, chebtec):
-        x1_cheb = chebtec(op=lambda x: x1.feval(x))
-        x2_cheb = chebtec(op=lambda x: x2.feval(x))
+    # If one of the arguments is a chebtech -> map everything to a chebtech and then map back!
+    elif isinstance(x1, chebtech) or isinstance(x2, chebtech):
+        x1_cheb = chebtech(op=lambda x: x1.feval(x))
+        x2_cheb = chebtech(op=lambda x: x2.feval(x))
         result = cb_funcs.multiply(x1_cheb, x2_cheb)
         return trigtech(op=lambda x: result.feval(x))
 
@@ -219,7 +219,7 @@ def multiply(x1, x2, **kwargs):
     # the size of the chebpy object as element-wise multiplication in
     # coefficient space.
     elif isinstance(x2, type(x1)):
-        # Multiplication with other chebtec
+        # Multiplication with other chebtech
         if x1.n == 1:  # x1 is a constant function
             return multiply(x2, x1.coeffs, **kwargs)
         elif x2.n == 1:  # x2 is a constant function

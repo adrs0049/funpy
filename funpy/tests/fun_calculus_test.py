@@ -3,7 +3,9 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 from numpy.testing import assert_, assert_raises, assert_almost_equal
-from fun import Fun, norm, norm2, h1norm, wkpnorm
+
+import funpy as fp
+from funpy import Fun, norm, norm2, h1norm, wkpnorm
 
 
 class TestFunCalculus:

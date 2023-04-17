@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-import funpy as fp
-from fun import Fun
 from numpy.testing import assert_, assert_raises
+
+import funpy as fp
+from funpy import Fun
 
 
 class TestFunAddition:

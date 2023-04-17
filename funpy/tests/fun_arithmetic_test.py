@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-import funpy as fp
 from numpy.testing import assert_, assert_raises, assert_almost_equal
-from fun import Fun
 
+import funpy as fp
+from funpy import Fun
 
 class TestFun:
     def test_addition(self):

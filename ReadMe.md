@@ -34,6 +34,7 @@ may be slow for this reason.
 
 1. pylops
 2. python 3.11 (due to strEnum)
+3. Input/Output support uses HDF5 and requires h5py.
 
 
 Status

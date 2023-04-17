@@ -6,7 +6,9 @@ import numpy as np
 import h5py as h5
 from numpy.testing import assert_, assert_raises, assert_almost_equal
 from copy import copy, deepcopy
-from fun import Fun
+
+import funpy as fp
+from funpy import Fun
 
 
 class TestFunEval:

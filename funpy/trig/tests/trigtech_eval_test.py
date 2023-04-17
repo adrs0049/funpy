@@ -3,7 +3,9 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 from numpy.testing import assert_, assert_raises, assert_almost_equal
-from trig.trigtech import trigtech
+
+import funpy as fp
+from funpy.trig import trigtech
 
 
 class TesttrigtechEval:

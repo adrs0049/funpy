@@ -3,12 +3,13 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 from numpy.testing import assert_, assert_raises, assert_almost_equal
-from cheb.chebpy import chebtec
 
-class TestChebTecEval:
+from funpy.cheb import chebtech
+
+class TestchebtechEval:
     def test_eval(self):
         ff = lambda x: np.sin(2 * np.pi * x)
-        f  = chebtec(op=lambda x: np.sin(2 * np.pi * x), type='cheb')
+        f  = chebtech(op=lambda x: np.sin(2 * np.pi * x), type='cheb')
 
         # test domain
         xs = np.linspace(-1, 1, 100)
@@ -18,7 +19,7 @@ class TestChebTecEval:
 
     def test_scalar_eval(self):
         ff = lambda x: np.sin(2 * np.pi * x)
-        f  = chebtec(op=lambda x: np.sin(2 * np.pi * x), type='cheb')
+        f  = chebtech(op=lambda x: np.sin(2 * np.pi * x), type='cheb')
 
         # test domain
         xs = np.asarray([1.0])
@@ -28,7 +29,7 @@ class TestChebTecEval:
 
     def test_real_eval(self):
         ff = lambda x: np.sin(2 * np.pi * x)
-        f  = chebtec(op=lambda x: np.sin(2 * np.pi * x), type='cheb')
+        f  = chebtech(op=lambda x: np.sin(2 * np.pi * x), type='cheb')
 
         # test domain
         xs = 1.0
