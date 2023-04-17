@@ -183,15 +183,3 @@ Three nonlinear solvers are available:
 1. Classical Newton
 2. QNERR (ERRor-based Quasi-Newton algorithm) see P. Deuflhard 2011
 3. NLEQ-ERR (ERRor-based Damped Newton algorithm) see P. Deuflhard 2011
-
-Linear solvers 
------------------
-
-Continuation
------------------
-
-Several methods of continuation are implemented:
-
-1. Deflation available to discover new solutions.
-2. Newton-Gauss continuation.
-3. Pseudo-arclength continuation (does it still work?)
