@@ -71,6 +71,12 @@ non-periodic (Chebyshev series), and periodic (Fourier series) functions are
 supported.
 
 ```
+import numpy as np
+import funpy as fp
+from funpy import Fun
+from funpy import plot
+import matplotlib.pyplot as plt
+
 # Define a function having two components on the interval [0, 1]
 fun = Fun(op=[lambda x: np.cos(np.pi * x), lambda x: -np.cos(np.pi * x)], domain=[0, 1])
 
@@ -84,7 +90,39 @@ cfun = np.cumsum(fun)
 dfun = np.diff(fun)
 
 # And of course all arithmetic operations are implemented.
-fun2 = fun1 + fun1
+fun2 = fun + fun
+
+# Plot fun2
+plot(fun2)
+plt.show()
+```
+
+Periodic functions approximated using Fourier series are supported. A periodic function is
+created by specifying a type when creating a Fun object. Periodic functions are currently
+slower than their Chebyshev counter parts, since less of their operations are implemented
+in cython. **Warning:** The memory layout appears no longer persistent with newer versions of numpy,
+which confuses various cython extensions.
+
+```
+import numpy as np
+import funpy as fp
+from funpy import Fun
+
+# Define a function having two components on the interval [0, 1]
+fun = Fun(op=[lambda x: np.sin(x), lambda x: np.cos(x)], domain=[0, 2. * np.pi], type='trig')
+
+# Compute the define integral
+int = np.sum(fun)
+
+# Compute the anti-derivative
+cfun = np.cumsum(fun)
+
+# Compute the derivative
+dfun = np.diff(fun)
+
+# And of course all arithmetic operations are implemented.
+fun2 = fun + fun
+
 ```
 
 Collocation
