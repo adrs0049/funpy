@@ -1,9 +1,9 @@
 Funpy
 =========
 
-Extends the NumPy API to work with functions. The code and its structure are inspired 
-by and translated from [Chebfun](https://www.chebfun.org/), and Approximation Theory and
-Approximation Practice.
+Extends the NumPy API to work with functions. The code and its structure are inspired
+by and translated from [Chebfun](https://www.chebfun.org/), and the book
+[Approximation Theory and Approximation Practice](https://www.chebfun.org/ATAP).
 
 So far this has been a learning project, and a project used to teach and do a little bit of
 research. Both the Chebyshev and Fourier spectral collocation methods work well enough to carry out
@@ -52,7 +52,7 @@ ToDo
 2. Better unit testing.
 3. Object constructors are a mess, make more use of classmethods!
 4. Improve module import, and have all the usual package things good to go i.e.\
-   (`__doc__` strings) etc. 
+   (`__doc__` strings) etc.
 
 5. Fix fallout from removing jax from colloc.
 6. Improve `sympy` code, in particular fix the "compilation" of non-local equations.
@@ -171,7 +171,7 @@ must be given to ChebOp upon construction (Future: Can we infer this somehow?).
    `jax`. It would be really nice to get rid of this dependency.
 
 3. Additional constraints can be specified in `cts`. For instance, mass
-   constrains can be defined as in the example above. Note however, that
+   constraints can be defined as in the example above. Note however, that
    currently **no** projections are applied. This may not be correct depending
    on the type of problem you are solving!
 
