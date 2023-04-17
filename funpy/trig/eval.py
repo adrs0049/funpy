@@ -25,7 +25,7 @@ def horner_vec_cmplx(x, c):
             q = e*c[j,:] + z * q
 
         if n & 1:
-            q = np.exp(-1j*np.pi*(n-1)//2*x) * (e * c[0, :] + z * q)
+            q = np.exp(-1j*np.pi*((n-1)//2)*x) * (e * c[0, :] + z * q)
         else:
             q = np.exp(-1j*np.pi*(n//2-1)*x) * q + np.cos(n//2 * np.pi * x) * c[0, :]
     else:
@@ -34,7 +34,7 @@ def horner_vec_cmplx(x, c):
             q = z * q + c[j, :]
 
         if n & 1:
-            q = np.exp(-1j*np.pi*(n-1)//2*x) * (z * q + c[0, :])
+            q = np.exp(-1j*np.pi*((n-1)//2)*x) * (z * q + c[0, :])
         else:
             q = np.exp(-1j*np.pi*(n//2-1)*x) * q + np.cos(n//2 * np.pi * x) * c[0, :]
 
@@ -107,8 +107,8 @@ def horner_vec_real(x, c):
     if N == 1:
         return np.matmul(e, a)
 
-    u = np.tile(np.cos(np.pi * x), (1, numCols))
-    v = np.tile(np.sin(np.pi * x), (1, numCols))
+    u = np.tile(np.cos(np.pi * x), (1, numCols)).reshape((nValsX, numCols), order='F')
+    v = np.tile(np.sin(np.pi * x), (1, numCols)).reshape((nValsX, numCols), order='F')
     co = np.matmul(e, a[None, n-1, :])
     si = np.matmul(e, b[None, n-1, :])
 

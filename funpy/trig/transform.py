@@ -56,7 +56,7 @@ def vals2coeffs(values):
         even_odd_fix = np.expand_dims((-1)**np.arange(-n/2, n/2, 1), axis=1)
 
     coeffs = even_odd_fix * coeffs
-    return coeffs
+    return np.asfortranarray(coeffs)  # What's the penalty here?
 
 def coeffs2vals(coeffs):
     """ Convert Fourier coefficients to values at N equally spaced points between [-1, 1],
@@ -87,4 +87,4 @@ def coeffs2vals(coeffs):
     skewvals = (vals - np.flipud(np.conj(vals)))/2
     values[:, is_herm] = hermvals[:-1, is_herm]
     values[:, is_skew] = skewvals[:-1, is_skew]
-    return values
+    return np.asfortranarray(values)  # What's the penalty here?

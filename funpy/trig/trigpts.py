@@ -17,4 +17,4 @@ def trigpts(n):
 
     x = np.linspace(-1, 1, n+1)[:-1]
     w = quadwts(n)
-    return x, w
+    return np.asfortranarray(x), w

@@ -10,13 +10,14 @@ def expand(array, axis=1):
         return np.expand_dims(array, axis=axis)
     return array
 
+
 """ Base class for resampling and refining operations  """
 class RefineBase(object):
     def __init__(self, op, *args, **kwargs):
         self.minSamples = kwargs.pop('minSamples', 9)
         self.op = op
         self.strategy = kwargs.pop('strategy', 'nested')
-        self.values = np.zeros((0,0), dtype='complex')
+        self.values = np.zeros((0,0), dtype='complex', order='F')
 
     def __call__(self, target):
         return self._call(target)
@@ -70,7 +71,8 @@ class Refine(RefineBase):
 
         # compute the average values of f at -/+ 1 and then remove the +1 value
         self.values[0, :] = 0.5 * (self.values[0, :] + self.values[-1, :])
-        self.values = self.values[:-1, :]
+        self.values = np.asfortranarray(self.values[:-1, :])
+
         return self.values, giveUp
 
     """ Resample the function on a nested domain """
@@ -91,7 +93,7 @@ class Refine(RefineBase):
         x = x[1::2]
 
         # shift the stored values
-        new_values = np.zeros((n, self.values.shape[1]), dtype=self.values.dtype)
+        new_values = np.zeros((n, self.values.shape[1]), dtype=self.values.dtype, order='F')
         new_values[:n:2, :] = self.values
 
         # compute the new values

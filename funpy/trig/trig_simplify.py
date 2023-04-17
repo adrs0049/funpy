@@ -23,7 +23,7 @@ def prolong(coeffs, Nout, isReal=None):
         Nin += 1
 
     if Nin == Nout:
-        coeffs = coeffs
+        coeffs = np.asfortranarray(coeffs)
         values = coeffs2vals(coeffs)
         values[:, isReal] = np.real(values[:, isReal])
 
@@ -35,7 +35,7 @@ def prolong(coeffs, Nout, isReal=None):
                             coeffs,
                             np.zeros((kdown, coeffs.shape[1]))))
 
-        coeffs = coeffs
+        coeffs = np.asfortranarray(coeffs)
         values = coeffs2vals(coeffs)
         values[:, isReal] = np.real(values[:, isReal])
 
@@ -47,7 +47,7 @@ def prolong(coeffs, Nout, isReal=None):
         if kup < kdown:
             coeffs[0, :] = 2*coeffs[0, :]
 
-        coeffs = coeffs
+        coeffs = np.asfortranarray(coeffs)
         values = coeffs2vals(coeffs)
         values[:, isReal] = np.real(values[:, isReal])
 
@@ -80,6 +80,7 @@ def simplify_coeffs(coeffs, isReal, eps=1e-14):
 
     abs_coeffs = np.flipud(abs_coeffs)
     abs_coeffs = np.vstack((abs_coeffs[0, :], np.kron(abs_coeffs[1:, :], np.vstack((1,1)))))
+    abs_coeffs = np.asfortranarray(abs_coeffs)
 
     # loop through columns to compute cutoff
     cutoff = 1

@@ -281,7 +281,7 @@ class trigtech(np.lib.mixins.NDArrayOperatorsMixin):
             Nin += 1
 
         if Nin == Nout:
-            self.coeffs = coeffs
+            self.coeffs = np.asfortranarray(coeffs)
             self.values = coeffs2vals(self.coeffs)
             self.values[:, self.isReal] = np.real(self.values[:, self.isReal])
 
@@ -292,7 +292,7 @@ class trigtech(np.lib.mixins.NDArrayOperatorsMixin):
             coeffs = np.vstack((np.zeros((kup, coeffs.shape[1])),
                                 coeffs,
                                 np.zeros((kdown, coeffs.shape[1]))))
-            self.coeffs = coeffs
+            self.coeffs = np.asfortranarray(coeffs)
             self.values = coeffs2vals(self.coeffs)
             self.values[:, self.isReal] = np.real(self.values[:, self.isReal])
 
@@ -303,7 +303,7 @@ class trigtech(np.lib.mixins.NDArrayOperatorsMixin):
             coeffs = coeffs[kup:-kdown, :]
             if kup < kdown:
                 coeffs[0, :] = 2*coeffs[0, :]
-            self.coeffs = coeffs
+            self.coeffs = np.asfortranarray(coeffs)
             self.values = coeffs2vals(self.coeffs)
             self.values[:, self.isReal] = np.real(self.values[:, self.isReal])
 
@@ -450,7 +450,7 @@ class trigtech(np.lib.mixins.NDArrayOperatorsMixin):
             c = np.vstack((0.5 * self.coeffs[0, :], self.coeffs[1:, :], 0.5 * self.coeffs[0, :]))
             Nin += 1
         else:
-            c = np.copy(self.coeffs, order='K')
+            c = np.copy(self.coeffs, order='F')
 
         if Nin == Nout:
             c = self.coeffs
