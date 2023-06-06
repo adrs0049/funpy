@@ -8,8 +8,10 @@ import numpy as np
 
 # Local imports
 from .cheb import chebtech
+from .cheb import cheb_innerw
 from .mapping import Mapping
 from .trig import trigtech
+from .trig import trig_innerw
 from .functional import Functional
 from .trig.operations import circconv, circshift, trig_adhesion
 
@@ -564,9 +566,9 @@ def innerw(f, g):
 
     rescaleFactor = 0.5 * np.diff(f.domain)
     if f.istrig and g.istrig:
-        return trig.innerw(f.onefun, g.onefun) * rescaleFactor
+        return trig_innerw(f.onefun, g.onefun) * rescaleFactor
     else:
-        return cheb.innerw(f.onefun, g.onefun) * rescaleFactor
+        return cheb_innerw(f.onefun, g.onefun) * rescaleFactor
 
 
 @implements(np.roll)

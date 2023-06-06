@@ -9,6 +9,13 @@ from . import fun
 
 from . import functional
 
+from . import vectorspaces
+from . import colloc
+from . import support
+from . import linalg
+from . import newton
+from . import colloc
+
 from .fun import Fun
 from .fun import roots
 from .fun import minandmax

@@ -7,28 +7,12 @@ from numbers import Number
 import numpy as np
 from numpy.core.multiarray import normalize_axis_index
 
-try:
-    # Import compiled components -> Make sure this happens before all imports below!
-    from cheb.refine import RefineBase, Refine, RefineCompose1, RefineCompose2, FunctionContainer
-    from cheb.detail import polyfit, polyval, clenshaw, roots
-    from cheb.detail import standardChop, prolong, simplify_coeffs, happiness_check
-
-except ImportError:
-    from .build_cheb import build_cheb_module
-    build_cheb_module()
-
-    # Try the imports again
-    try:
-        from .refine import RefineBase, Refine, RefineCompose1, RefineCompose2, FunctionContainer
-        from .detail import polyfit, polyval
-        from .detail import clenshaw, roots
-        from .detail import standardChop, prolong, simplify_coeffs, happiness_check
-    except Exception as e:
-        raise e
-
+# Import compiled components -> Make sure this happens before all imports below!
+from .refine import RefineBase, Refine, RefineCompose1, RefineCompose2, FunctionContainer
+from .detail import polyfit, polyval, clenshaw, roots
+from .detail import standardChop, prolong, simplify_coeffs, happiness_check
 
 # Local imports
-from ..support.cached_property import lazy_property
 from .pts import chebpts_type2, chebpts_type2_compute, barymat, quadwts
 from .diff import computeDerCoeffs
 from .qr import qr
@@ -167,7 +151,7 @@ class chebtech(np.lib.mixins.NDArrayOperatorsMixin):
     def isfortran(self):
         return self.coeffs.flags.f_contiguous
 
-    @lazy_property
+    @property
     def vscale(self):
         """ Estimates the vertical scale of a function """
         if self.coeffs is None or self.coeffs.size == 0:

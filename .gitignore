@@ -39,3 +39,6 @@ cheb/*.html
 *.gif
 *.html
 *.webm
+build/
+*.egg-info
+.eggs/
