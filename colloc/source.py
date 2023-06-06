@@ -5,7 +5,7 @@ import numpy as np
 import sympy as syp
 import datetime
 
-# from sympy import symbols, simplify, Function
+from sympy import Function
 from sympy.matrices import zeros, ones
 # from sympy import sympify, latex, pprint
 # from IPython.display import display
