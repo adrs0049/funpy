@@ -29,12 +29,13 @@ class FrechetDeflated(LinearOperator):
             u:  Function; location of linearization.
             us: Nonlinear operator source -> carries out linearization
         """
+        super().__init__(dtype=np.dtype(dtype), shape=matrix.shape)
+
+        # Local symbols
         self.mat = matrix
         self.adj = adjoint
 
         # Setup required LinOp information
-        self.shape = self.mat.shape
-        self.dtype = np.dtype(dtype)
         self.explicit = False
 
         # known solutions

@@ -40,17 +40,17 @@ class OpDiscretization:
         # the projection
         self.projection = None
 
+        # Setup shape
+        self.shape = kwargs.pop('shape',
+                                (self.dimension.squeeze().item(),
+                                 self.source.quasiOp.shape[0]) if self.source else None)
+
         # the default change of basis matrix
         self.S0 = None
 
     @property
     def numConstraints(self):
         return len(self.constraints) + len(self.continuity)
-
-    @property
-    def shape(self):
-        # TODO: temp for the moment!
-        return (self.dimension.squeeze().item(), self.source.quasiOp.shape[0])
 
     def getDimAdjust(self):
         """ size of the input space relative to disc.dicretization """

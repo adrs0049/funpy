@@ -69,11 +69,13 @@ def sympy_base_program_ode(function_names, parameters={}):
     cg.dedent()
     return cg.end()
 
+
 def sympy_base_program(function_names, constant_function_names,
                        operator_names=[],
                        kernels=[], parameters={},
                        unlikely_var_name='dummy_variable',
                        constant_functions=False, positive_parameters=True,
+                       undefined_functions=False,
                        real=True):
     cg = CodeGeneratorBackend()
     cg.begin(tab=4*" ")
@@ -114,6 +116,8 @@ def sympy_base_program(function_names, constant_function_names,
     for function_name in function_names:
         if constant_functions:
             cg.write('{0} = symbols("{0}", real={1:}, constant={2:})'.format(function_name, real, constant_functions))
+        elif undefined_functions:
+            cg.write('{0} = Function("{0}", real={1:}, constant={2:})'.format(function_name, real, constant_functions))
         else:
             cg.write('{0} = Function("{0}", real={1:}, constant={2:})(x)'.format(function_name, real, constant_functions))
 
@@ -122,6 +126,8 @@ def sympy_base_program(function_names, constant_function_names,
     for function_name, function_code in constant_function_names.items():
         if constant_functions:
             cg.write('{0} = symbols("{0}", real={1:}, constant={2:})'.format(function_name, real, constant_functions))
+        elif undefined_functions:
+            cg.write('{0} = Function("{0}", real={1:}, constant={2:})'.format(function_name, real, constant_functions))
         else:
             cg.write('{0} = Function("{0}", real={1:}, constant={2:})(x)'.format(function_name, real, constant_functions))
 
@@ -289,4 +295,31 @@ def pycode_imports():
     cg.write('')
     return cg.end()
 
+
+def get_arg(args):
+    if isinstance(args, tuple) and len(args) > 1:
+        assert False, 'Don\'t know how to deal with this yet!'
+    elif isinstance(args, tuple):
+        args = args[0]
+    assert args.is_number, 'Don\'t know how to deal with this yet!'
+    return float(args)
+
+
+def evaluate_expr_bc(expr):
+    func_name = None
+    func_arg = None
+    residual = None
+
+    for arg in expr.args:
+        if residual is not None and func_name is not None:
+            print('IGNORING STUFF!')
+            continue
+
+        if isinstance(arg, syp.Function):
+            func_name = arg.name
+            func_arg = get_arg(arg.args)
+        else:
+            residual = get_arg(arg)
+
+    return func_name, func_arg, residual
 

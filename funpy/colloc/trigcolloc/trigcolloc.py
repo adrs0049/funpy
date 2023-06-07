@@ -8,8 +8,7 @@ import scipy.sparse as sps
 
 from scipy.sparse import eye
 
-from ..fun.trig.trigtech import trigtech
-from ..fun.trig.trigpts import trigpts
+from ...trig import trigtech, trigpts
 
 from ..valsDiscretization import valsDiscretization
 from ..chebcolloc.baryDiffMat import diffmat

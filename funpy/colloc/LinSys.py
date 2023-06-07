@@ -4,7 +4,6 @@
 import numpy as np
 
 from .chebOpConstraint import ChebOpConstraint
-from .chebOpConstraintCompiled import ChebOpConstraintCompiled
 from .source.support import execute_pycode
 from .LinSysBase import LinSysBase
 from .linOp import LinOp
@@ -135,6 +134,7 @@ class LinSys(LinSysBase):
 
         for bc_op in src.bcs:
             try:
+                print('op_name = ', bc_op.symbol_name)
                 constraint = ChebOpConstraint(op=self.ns[bc_op.symbol_name],
                                               domain=src.domain)
 
@@ -142,16 +142,8 @@ class LinSys(LinSysBase):
             except KeyError:
                 raise RuntimeError('Could not find {0:s} in the namespace!'.format(bc_op.symbol_name))
 
-        # Compile the boundary cache!
-        bc_cache = ChebOpConstraintCompiled(self, n=1 + 2**12, m=src.n_eqn, domain=src.domain)
-        blocks = bc_cache.compile()
-
-        # Assign the compiled BCs
-        for i, constraint in enumerate(self.constraints):
-            constraint.compiled = blocks[i]
-
     def getConstraintsRhs(self, u):
-        rhs = np.empty((self.numConstraints, 1), dtype=np.float)
+        rhs = np.empty((self.numConstraints, 1), dtype=float)
         for i, constraint in enumerate(self.constraints):
             rhs[i, 0] = constraint.residual(u)
         return rhs

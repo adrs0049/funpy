@@ -55,6 +55,7 @@ class Newton(NewtonBase):
             self.status = NewtonErrors.Success if success else NewtonErrors.NonlinSolFail
 
         elif method == 'giant' or method == 'giant-gbit' or method == 'giantgbit':
+            print('u0 = ', u0)
             x, success, k, self.neval, sys = giant_gbit(
                 LinOp, u0, inner=np.dot, dtype=self.dtype, callback=self.callback,
                 *args, **kwargs)

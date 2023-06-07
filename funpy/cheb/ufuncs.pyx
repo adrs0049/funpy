@@ -14,7 +14,7 @@ from scipy.fft import ifft, fft, irfft, rfft
 from .chebtech import chebtech
 from ..trig.trigtech import trigtech
 
-cimport detail
+from . cimport detail
 
 
 def negative(x, **kwargs):

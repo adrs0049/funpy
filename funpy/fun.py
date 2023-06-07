@@ -8,10 +8,10 @@ import numpy as np
 
 # Local imports
 from .cheb import chebtech
-from .cheb import cheb_innerw
+from .cheb import innerw as cheb_innerw
 from .mapping import Mapping
 from .trig import trigtech
-from .trig import trig_innerw
+from .trig import innerw as trig_innerw
 from .functional import Functional
 from .trig.operations import circconv, circshift, trig_adhesion
 

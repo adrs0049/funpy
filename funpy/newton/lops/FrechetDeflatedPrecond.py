@@ -7,12 +7,12 @@ import numpy as np
 
 class FrechetDeflatedPrecond(LinearOperator):
     def __init__(self, Pf, b, dtype=None, *args, **kwargs):
+        super().__init__(dtype=np.dtype(dtype), shape=Pf.shape)
+
+        # Local symbols
         self.Pf = Pf
         self.PfT = None
         self.b = b
-
-        self.shape = self.Pf.shape
-        self.dtype = np.dtype(dtype)
         self.explicit = False
 
         self.ks = kwargs.get('ks', 0)

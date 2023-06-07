@@ -6,6 +6,7 @@ import warnings
 from scipy.fft import ifft
 from functools import lru_cache
 
+
 """ Barycentric weights """
 @lru_cache(maxsize=25)
 def bary_weights(N):
@@ -13,6 +14,7 @@ def bary_weights(N):
     c[-2::-2] = -1
     c[0] *= 0.5
     return c
+
 
 """ Quadrature weights for Curtis-Clenshaw """
 @lru_cache(maxsize=25)
@@ -29,6 +31,7 @@ def quadwts(N):
     w = np.hstack((w, w[0]))
     return w.real
 
+
 """ Scale Chebyshev nodes to a domain [a, b] """
 def scaleNodes(x, interval):
     a = interval[0]
@@ -39,6 +42,7 @@ def scaleNodes(x, interval):
 
     return 0.5 * b * (1. + x) + 0.5 * a * (1. - x)
 
+
 """ Scale weights to a domain [a, b] """
 def scaleWeights(w, interval):
     a = interval[0]
@@ -48,6 +52,7 @@ def scaleWeights(w, interval):
         return w
 
     return 0.5 * np.diff(interval) * w
+
 
 """ Barycentric weights for re-sampling for second kind points """
 def barymat_impl(y, x, w):
@@ -61,12 +66,14 @@ def barymat_impl(y, x, w):
     P[np.isnan(P)] = 1.
     return P
 
+
 def barymat(y, x, w):
     # don't warn in this function since we deal with those warnings
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', r'divide by zero')
         warnings.filterwarnings('ignore', r'invalid value encountered')
         return barymat_impl(y, x, w)
+
 
 @lru_cache(maxsize=25)
 def chebpts_type1_compute(N):
@@ -77,6 +84,7 @@ def chebpts_type1_compute(N):
     else:
         return np.sin(np.pi * np.arange(-N+1, N, 2) / (2. * N))
 
+
 @lru_cache(maxsize=25)
 def chebpts_type2_compute(N):
     if N == 0:
@@ -85,6 +93,7 @@ def chebpts_type2_compute(N):
         return [0]
     else:
         return np.sin(np.pi * np.arange(-N+1, N, 2) / (2. * (N - 1)))
+
 
 """ Functions to compute everything associated with type-1 points """
 def chebpts_type1(N, interval=None):
@@ -119,6 +128,7 @@ def chebpts_type1(N, interval=None):
 
     return np.asarray(x), np.asarray(w), np.asarray(v), np.asarray(t)
 
+
 """ Functions to compute everything associated with type-2 points """
 def chebpts_type2(N, interval=None):
     # some special cases
@@ -150,6 +160,7 @@ def chebpts_type2(N, interval=None):
         t = np.pi * np.flip(np.arange(0, N, 1)) / (N - 1)
 
     return np.asarray(x), np.asarray(w), np.asarray(v), np.asarray(t)
+
 
 def chebpts(N, interval=[-1,1], type=2):
     if type == 1:

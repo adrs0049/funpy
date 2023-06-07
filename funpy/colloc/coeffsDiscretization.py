@@ -130,32 +130,18 @@ class coeffsDiscretization(OpDiscretization):
         n, m = self.shape
 
         blocks = np.empty(nc, dtype=object)
-        if self.constraints[0].compiled is not None:
-            for i, constraint in enumerate(self.constraints):
-                cc = constraint.compiled
-                blocks[i] = np.zeros((1, n * m))
-                j = cc.shape[1] // m
+        vConstraints = self.source.constraints
 
-                # Need to apply the Fourier transform trick per equation element!
-                for k in range(m):
-                    blocks[i][:, k*n:(k+1)*n] = cc[:, k*j:k*j+n]
+        # convert from value-space to coeff-space using polyval
+        for i, constraint in enumerate(vConstraints):
+            functional = constraint(n)
+            print("i = ", i, " constraint = ", constraint, ' functional = ', functional)
+            blocks[i] = np.zeros_like(functional)
 
-        else:
-            # Generate a value collocation to first represent the functionals
-            fun = Fun(op=m * [lambda x: np.zeros_like(x)], type='cheb').prolong(n)
-            valColloc = chebcolloc2(self.source, values=fun.values, domain=self.domain)
-
-            # get the constraint matrices
-            vConstraints = valColloc.getConstraints(n)
-
-            # convert from value-space to coeff-space using polyval
-            for i, constraint in enumerate(vConstraints):
-                blocks[i] = np.zeros_like(constraint)
-
-                # Need to apply the Fourier transform trick per equation element!
-                for k in range(m):
-                    Ml = np.rot90(constraint[:, k*n:(k+1)*n]).astype(np.double)
-                    blocks[i][:, k*n:(k+1)*n] = np.rot90(polyval(Ml), -1)
+            # Need to apply the Fourier transform trick per equation element!
+            for k in range(m):
+                Ml = np.rot90(functional[:, k*n:(k+1)*n]).astype(float)
+                blocks[i][:, k*n:(k+1)*n] = np.rot90(polyval(Ml), -1)
 
         return blocks
 

@@ -5,7 +5,7 @@ import numpy as np
 import sympy as syp
 import datetime
 
-from sympy import symbols, simplify, cancel, Function, Integral
+from sympy import symbols, simplify, cancel, Function, Integral, srepr
 from sympy.matrices import zeros, ones
 from sympy.solvers.deutils import ode_order
 from sympy import sympify, preorder_traversal
@@ -14,7 +14,7 @@ from ...vectorspaces import Namespace
 
 from .gen import CodeGeneratorBackend
 
-from .support import execute_pycode
+from .support import execute_pycode, evaluate_expr_bc
 from .support import sympy_base_program, convolve, term_simplify
 from .OperatorSource import OperatorSource
 from .NonlinearOperatorSource import NonlinearFunctionSource
@@ -146,7 +146,8 @@ class Source:
         return function_names
 
     def compile(self, cpars=[], debug=False, par=False, fold=False, bif=False):
-        self.init(debug=debug)
+        # Initialize the local namespace for the compile
+        self.init(self.ns, debug=debug)
         self.functions = [self.ns[fname] for fname in self.function_names]
         self.operators = [self.ns[oname] for oname in self.operator_names]
         self.kernels   = [self.ns[kname] for kname in self.integration_kernels]
@@ -165,7 +166,7 @@ class Source:
             src = getattr(self, type + '_src')
             if src is None: continue
             name = self.symbol_names[type]
-            spcode = self.sympify(src, name, debug=debug)
+            spcode = self.sympify(src, self.ns, debug=debug)
             self.syp_src[type] = spcode
 
             # Compute the diff Order
@@ -207,25 +208,24 @@ class Source:
             assert False, 'Fix me once again!'
 
     def compile_bcs(self, function_names, debug=False):
-        spcode = self.sympify(self.bcs_src, debug=debug)
+        """
+            Function requires improving! FIXME!
+        """
+        if debug: print('Compiling boundary conditions!')
+        self.bc_ns = Namespace()
+        self.init(self.bc_ns, debug=debug, undefined_functions=True)
+        #spcode = self.sympify(self.bcs_src, self.bc_ns, debug=debug)
+        spcode = self.bcs_src # This is callable now
         op = self.d_spcode['eqn']
         self.bcs = BoundaryConditionsSource(op=op)
 
-        # Number of defined boundary conditions
-        nbc = spcode.shape[0]
-        neqn = op.neqn
-
         # If the number of equation matches the BC -> duplicate the BC.
-        for i, j in np.ndindex(spcode.shape):
-            if nbc == neqn and self.diffOrder == 2:
-                # Duplicates the boundary condition to both sides of the domain!
-                for k, loc in enumerate(self.domain):
-                    op = BoundaryConditionSource(coeffs=spcode[i, j], location=loc)
-                    self.bcs.append(op)
-
-            else:
-                op = BoundaryConditionSource(coeffs=spcode[i, j], location=self.domain[i % 2])
-                self.bcs.append(op)
+        # for i, j in np.ndindex(spcode.shape):
+        for i in range(len(spcode)):
+            #func_name, func_arg, func_res = evaluate_expr_bc(spcode[i])
+            op = BoundaryConditionSource(coeffs=spcode[i])
+            # func_name=func_name, residual=func_res, location=func_arg)
+            self.bcs.append(op)
 
     def compile_fold(self, cpars, debug=False):
         """
@@ -554,20 +554,24 @@ class Source:
         osrc.finish()
         return osrc
 
-    def init(self, debug=False):
+    def init(self, namespace, debug=False, *args, **kwargs):
         # generate the Sympy base program
         pycode = sympy_base_program(self.function_names, self.constant_function_names,
                                     self.operator_names,
                                     self.integration_kernels, self.parameter_names,
-                                    constant_functions=self.constant_functions)
-        execute_pycode(pycode, self.ns, debug=debug)
+                                    constant_functions=self.constant_functions,
+                                    *args, **kwargs)
+        execute_pycode(pycode, namespace, debug=debug)
 
-    def sympify(self, src, *args, **kwargs):
+    def sympify(self, src, namespace, *args, **kwargs):
         # create the Matrix for the nonlinear operator
         n_src = len(src)
         matrix = zeros(n_src, 1)
         for i, j in np.ndindex(matrix.shape):
-            matrix[i, j] = sympify(src[i] if len(src[i]) > 0 else '0.0', locals=self.ns)
+            print('Trying to sympify something!')
+            print(src[i])
+            matrix[i, j] = sympify(src[i] if len(src[i]) > 0 else '0.0',
+                                   locals=namespace)
         return matrix
 
     def __emit_common(self, var_names=['x']):

@@ -15,8 +15,8 @@ class QuasiOpBlock:
         # Storage for current coefficients
         self.coeffs    = kwargs.pop('coeffs', np.empty(1, dtype=object))
         self.nl_coeffs = kwargs.pop('nl_coeffs', np.empty(1, dtype=object))
-        self.icoeffs  = kwargs.pop('icoeffs', None)
-        self.integrand  = kwargs.pop('integrand', None)
+        self.icoeffs   = kwargs.pop('icoeffs', None)
+        self.integrand = kwargs.pop('integrand', None)
 
     @property
     def has_nonlocal(self):

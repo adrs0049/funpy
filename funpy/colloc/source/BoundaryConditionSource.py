@@ -14,6 +14,9 @@ class BoundaryConditionSource:
         self.dummy = kwargs.pop('dummy', None)
         self.coeffs = kwargs.pop('coeffs', None)
         self.location = kwargs.pop('location', 0.0)
+        self.residual = kwargs.pop('residual', 0.0)
+        self.func_name = kwargs.pop('func_name', '')
+        print('coeffs = ', self.coeffs)
 
         # Collect symbol name
         self.symbol_name = ''
@@ -26,14 +29,15 @@ class BoundaryConditionSource:
 
     @property
     def expr(self):
-        return self.expr
+        return self.coeffs
 
     def emit(self, cg, name, function_names, constant_function_names,
              ftype, domain, *args, **kwargs):
 
-        ccode = cpcode(self.coeffs,
-                       #function_names=function_names + constant_function_names,
-                       **kwargs)
+        #ccode = cpcode(self.coeffs,
+        #               #function_names=function_names + constant_function_names,
+        #               **kwargs)
+        ccode = self.coeffs
 
         # Store symbol name of function
         self.symbol_name = '{0:s}'.format(name)
@@ -51,6 +55,6 @@ class BoundaryConditionSource:
 
         # HACK: make sure we replace the default spatial variable with the location at
         # which we want to evaluate the functions.
-        ccode = ccode.replace('x', '{0:.16f}'.format(self.location))
+        # ccode = ccode.replace('x', '{0:.16f}'.format(self.location))
         cg.write('return {0}'.format(ccode))
         cg.dedent()

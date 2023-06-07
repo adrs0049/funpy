@@ -24,7 +24,7 @@ class TestChebOpLinear:
         assert_(res < 1e-9)
 
         # The exact solution
-        e = lambda x : np.exp( - (np.arctan(np.sqrt(a) * x) + np.arctan(np.sqrt(a))) / np.sqrt(a))
+        e = lambda x: np.exp( - (np.arctan(np.sqrt(a) * x) + np.arctan(np.sqrt(a))) / np.sqrt(a))
         xs = np.linspace(-1, 1, 1000)
         assert_almost_equal(e(xs), soln(xs))
 

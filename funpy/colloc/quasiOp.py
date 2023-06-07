@@ -3,8 +3,6 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from .source.support import execute_pycode
-
 
 class QuasiOp:
     def __init__(self, shape=None, *args, **kwargs):

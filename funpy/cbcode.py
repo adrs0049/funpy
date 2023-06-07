@@ -19,7 +19,12 @@ class FunPyPrinter(SciPyPrinter):
         no_evaluation=False,
         function_names={})
 
-    def _print_Derivative(self, expr):
+    def _print_Subs(self, expr):
+        expr, new, old = expr.args
+        self._settings['no_evaluation'] = True
+        return r'{0:s}({1:s})'.format(self._print(expr), self._print(old[0]))
+
+    def _print_Derivative(self, expr, no_evaluation=False):
         """ Emit python code to compute derivative """
         dim = 0
         arg = None
@@ -32,7 +37,7 @@ class FunPyPrinter(SciPyPrinter):
         # since any sub expression is inside the diff it should not be evaluated
         # expr.expr.args = tuple([])
 
-        if self._settings.get('no_evaluation', False):
+        if self._settings.get('no_evaluation', False) or no_evaluation:
             return r"np.diff(%s, %d)" % (self._print(expr.expr), dim)
         else:
             return r"np.diff(%s, %d)(%s)" % (self._print(expr.expr, overwrite_eval=True), dim, arg)

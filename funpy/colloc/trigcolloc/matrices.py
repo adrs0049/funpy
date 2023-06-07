@@ -7,8 +7,8 @@ import scipy.sparse as sps
 import scipy.linalg as LA
 from scipy.fft import ifft, fft
 from scipy.sparse import eye, issparse
-from sparse.csr import delete_rows_csr
 
+from ..sparse.csr import delete_rows_csr
 from ...cheb import chebpts_type2, barymat
 
 CACHE_SIZE = 25

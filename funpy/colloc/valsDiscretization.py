@@ -4,10 +4,7 @@
 import numpy as np
 from scipy.sparse import diags
 
-from ..cheb import chebpts
 from .OpDiscretization import OpDiscretization
-
-HANDLED_FUNCTIONS = {}
 
 
 class valsDiscretization(OpDiscretization):
@@ -15,6 +12,7 @@ class valsDiscretization(OpDiscretization):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.values = np.asarray(kwargs.pop('values', np.zeros(1)))
+        self.shape = self.values.shape
 
         # make sure that we have a 2D shape
         if len(self.values.shape) == 1:
@@ -22,22 +20,7 @@ class valsDiscretization(OpDiscretization):
 
         self.type = kwargs.get('type', 2)
         assert self.type == 1 or self.type == 2, 'Type must be 1 or 2!'
-
-        # generate a bunch of useful points
-        self.x, self.w, self.v, _ = chebpts(self.values.shape[0], interval=self.domain,
-                                            type=self.type)
         self.dimension = np.atleast_1d(self.values.shape[0])
-
-    def __call__(self, y):
-        """ Evaluates the value collocation at the points y """
-        # TODO: somehow detect when we need to map and when we don't!
-        # E = self.eval(self.mapping.bwd(y))
-        E = self.eval(y)
-        return np.dot(E, self.values)
-
-    @property
-    def shape(self):
-        return self.values.shape
 
     @property
     def m(self):
@@ -96,37 +79,17 @@ class valsDiscretization(OpDiscretization):
         return M, S
 
     def getConstraints(self, n):
+        """
+        Function is broken. No longer used for written purpose.
+        Fix once rest of class is implemented.
+        """
+        assert False, 'FIXME!'
         nc = len(self.constraints)
         blocks = np.empty(nc, dtype=object)
 
         for i, constraint in enumerate(self.constraints):
             constraint.domain = self.domain
 
-            # create derivative of the block
-            # dfunc = grad(constraint)
-            assert False, 'FIXME!'
-
-            # Force float64 here -> otherwise we encounter quite massive rounding errors!
-            blocks[i] = np.expand_dims(dfunc(np.zeros((n, self.m), dtype=np.float64)).copy().flatten(order='F'), axis=0)
-
         return blocks
 
-    def __array_function__(self, func, types, args, kwargs):
-        if func not in HANDLED_FUNCTIONS:
-            return NotImplemented
-        if not all(issubclass(t, self.__class__) for t in types):
-            return NotImplemented
-        return HANDLED_FUNCTIONS[func](*args, **kwargs)
 
-
-""" Decorator to register onp functions """
-def implements(np_function):
-    def decorator(func):
-        HANDLED_FUNCTIONS[np_function] = func
-        return func
-    return decorator
-
-
-@implements(np.diff)
-def diff(f, k=1, dim=0, *args, **kwargs):
-    return f.diff(k=k, axis=dim)

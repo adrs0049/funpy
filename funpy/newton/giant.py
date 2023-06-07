@@ -87,6 +87,7 @@ def giant_gbit(NewtonSystem, x, tol=1e6 * np.finfo(float).eps,
             normdxkm1 = norm(dx)
             normdxbar = norm(dxbar)
         else:  # Only need to do this here when k == 0
+            rhs = nsystem.rhs(x)
             fxk[:] = nsystem.rhs(x)
             normfk = norm(fxk)
 

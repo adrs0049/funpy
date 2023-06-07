@@ -329,6 +329,7 @@ class ChebOp:
         eps = kwargs.pop('eps', self.eps)
         newton = Newton(self, tol=eps, *args, **kwargs)
         newton.shape = (self.n_disc, len(self.eqn))
+        print('n_disc = ', self.n_disc)
 
         # Create initial state
         if f is None: f = zeros(len(self.eqn), domain=self.domain)
@@ -344,6 +345,7 @@ class ChebOp:
                 i_state, eps=1e2*eps, debug=debug,
                 verbose=verbose, *args, **kwargs)
         else:
+            i_state = i_state.prolong(self.n_disc)
             precond = False if self.ftype == 'trig' else True
             s_state, success, iterations = newton.solve(
                 i_state, precond=precond, debug=debug, *args, **kwargs)
