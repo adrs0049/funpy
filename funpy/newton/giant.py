@@ -4,10 +4,9 @@
 from enum import Enum
 from math import sqrt
 import warnings
-from copy import deepcopy
 import numpy as np
 
-from funpy.linalg.gbit import gbit
+from ..linalg import gbit
 
 
 class Adaptmode(Enum):

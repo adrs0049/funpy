@@ -2,15 +2,8 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-import scipy as sp
-from math import sqrt
-import scipy.sparse as sps
-import scipy.linalg as LA
 import scipy.sparse.linalg as LAS
-
-from funpy import Fun
-
-from newton.solver_norms import sprod
+from ..norms import sprod
 
 
 def prolong(array, Nout):

@@ -3,13 +3,9 @@
 # Author: Andreas Buttenschoen
 from math import ceil
 import numpy as np
-import scipy as sp
-from math import sqrt, log
-from scipy.sparse.linalg import splu
 
-from fun import minandmax
-from cheb.detail import polyval
-from cheb.chebpts import quadwts
+from funpy.cheb import polyval
+from funpy.cheb import quadwts
 
 
 def findNextPowerOf2(n):

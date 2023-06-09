@@ -269,7 +269,7 @@ class ChebOp:
                              domain=self.domain)
 
         # Do the sympy compile and generate the required operator python code!
-        self.source.compile(debug=self.debug, par=par, fold=par,
+        self.source.compile(debug=self.debug, par=par, fold=fold,
                             bif=bif, cpars=self.cpar)
 
         # Set diffOrder

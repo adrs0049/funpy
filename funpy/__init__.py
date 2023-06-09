@@ -11,7 +11,6 @@ from . import functional
 
 from . import vectorspaces
 from . import colloc
-from . import support
 from . import linalg
 from . import newton
 from . import colloc

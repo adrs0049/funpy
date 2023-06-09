@@ -15,12 +15,11 @@ class GeneralizedEigenvalueOp(LinearOperator):
         have constraints in the discretized matrix + a change of basis.
     """
     def __init__(self, projection, dtype=None, *args, **kwargs):
+        super().__init__(dtype=np.dtype(dtype), shape=(projection.shape[1],
+                                                       projection.shape[1]))
+        self.explicit = False
         self.proj = projection
         self.numConstraints = self.proj.shape[1] - self.proj.shape[0]
-
-        self.shape = (self.proj.shape[1], self.proj.shape[1])
-        self.dtype = np.dtype(dtype)
-        self.explicit = False
 
     def _matvec(self, x):
         """ Implements the action of the following operator:

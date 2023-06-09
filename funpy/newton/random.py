@@ -3,8 +3,7 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from fun import Fun, normalize, random
-from functional import Functional
+from ..fun import normalize, random
 
 
 class RandomVector:

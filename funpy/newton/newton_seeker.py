@@ -2,17 +2,13 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-import time
-from math import sqrt
-import warnings
-from copy import deepcopy
 
-from fun import Fun
-from newton.nleq_err import nleq_err
-from newton.giant import giant_gbit
-from states.deflation_state import DeflationState
-from newton.newton import NewtonBase
-from newton.sys.NewtonSystem import NewtonSystem
+from ..fun import Fun
+from ..vectorspaces import DeflationState
+from .nleq_err import nleq_err
+from .giant import giant_gbit
+from .newton import NewtonBase
+from .NewtonSystem  import NewtonSystem
 
 
 class NewtonSeeker(NewtonBase):

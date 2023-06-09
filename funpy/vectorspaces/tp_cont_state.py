@@ -5,9 +5,8 @@ import numpy as np
 from copy import deepcopy
 
 from ..fun import Fun, h1norm, norm, sturm_norm, sturm_norm_alt
-from states.base_state import BaseState
-from states.parameter import Parameter
-from support.cached_property import lazy_property
+from .base_state import BaseState
+from .parameter import Parameter
 
 
 class TwoParContState(BaseState):
@@ -63,7 +62,7 @@ class TwoParContState(BaseState):
     def flatten(self):
         return np.hstack((self.funcs[0].flatten(), self.reals[0].value, self.reals[1].value))
 
-    @lazy_property
+    @property
     def rank(self):
         return np.product(self.funcs[0].shape) + 1
 

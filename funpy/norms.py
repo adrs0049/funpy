@@ -3,10 +3,8 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from fun import Fun
-import fun as fp
-import states.base_state as sp
-from fun import norm2
+from .fun import norm2
+from .vectorspaces import innerw
 
 
 def nnorm(u, scale=None, weighted=True, p=2):
@@ -19,9 +17,9 @@ def nnorm(u, scale=None, weighted=True, p=2):
 def sprod(v1, v2, weighted=False, scale=None):
     if weighted:
         if scale is not None:
-            rval = sp.innerw(v1 * scale, v2 * scale)
+            rval = innerw(v1 * scale, v2 * scale)
         else:
-            rval = sp.innerw(v1, v2)
+            rval = innerw(v1, v2)
 
         if rval.size > 1:
             rval = np.sum(rval)

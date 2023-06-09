@@ -15,4 +15,5 @@ from . pts import chebpts
 from . pts import chebpts_type2, chebpts_type1
 
 from . diff import diffmat
+from . diff import computeDerCoeffs
 

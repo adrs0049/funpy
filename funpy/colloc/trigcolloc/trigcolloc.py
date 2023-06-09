@@ -9,10 +9,10 @@ import scipy.sparse as sps
 from scipy.sparse import eye
 
 from ...trig import trigtech, trigpts
+from ...cheb import diffmat
 
 from ..valsDiscretization import valsDiscretization
-from ..chebcolloc.baryDiffMat import diffmat
-from ..trigcolloc.matrices import blockmat
+from .matrices import blockmat
 
 
 class trigcolloc(valsDiscretization):

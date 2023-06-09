@@ -3,14 +3,9 @@
 # Author: Andreas Buttenschoen
 from pylops import LinearOperator
 import numpy as np
-import scipy.sparse.linalg as LAS
-import scipy.linalg as LA
 
-from funpy import Fun, h1norm, norm, norm2
-from support.Functional import Functional
-
-from funpy import quadwts
-from funpy import computeDerCoeffs
+from ..fun import h1norm
+from ..support import Functional
 
 
 class DeflatedResidual(LinearOperator):

@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
 import numpy as np
-from copy import deepcopy
 from math import sqrt
 import warnings
 

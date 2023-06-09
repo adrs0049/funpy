@@ -3,10 +3,9 @@
 # Author: Andreas Buttenschoen
 import numpy as np
 
-from fun import Fun
-from cheb.detail import polyval
-from cheb.diff import computeDerCoeffs
-from trig.transform import coeffs2vals, vals2coeffs
+from ..fun import Fun
+from ..cheb import polyval
+from ..cheb import computeDerCoeffs
 
 
 class Functional:

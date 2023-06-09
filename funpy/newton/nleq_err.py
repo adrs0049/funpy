@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Andreas Buttenschoen
-from copy import deepcopy
 from math import sqrt
 
 import warnings

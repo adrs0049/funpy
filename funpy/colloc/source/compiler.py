@@ -570,8 +570,8 @@ class Source:
         for i, j in np.ndindex(matrix.shape):
             print('Trying to sympify something!')
             print(src[i])
-            matrix[i, j] = sympify(src[i] if len(src[i]) > 0 else '0.0',
-                                   locals=namespace)
+            matrix[i, j] = sympify(src[i] if len(src[i]) > 0 else '0.0', locals=namespace)
+
         return matrix
 
     def __emit_common(self, var_names=['x']):
