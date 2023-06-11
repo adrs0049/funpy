@@ -21,21 +21,10 @@ Ideally all functions of the NumPy API should be appropriately implemented.
 In addition, it is highly desirable to implement solid collocation support to
 solve integro-differential equations.
 
-Future: Clean up all the mess? Fix the many API issues that exist. Extensions to 2D and 3D?
-
-Installation
---------
-
-There are currently no working `setup.py`. Things will work when you place your folder in your
-python path. The few cython extensions will be compiled automatically on import. The first import
-may be slow for this reason.
-
 ### Dependencies
 
-1. pylops
-2. python 3.11 (due to strEnum)
-3. Input/Output support uses HDF5 and requires h5py.
-
+1. pylops >=2.0
+2. Input/Output support uses HDF5 and requires h5py.
 
 Status
 --------
@@ -48,19 +37,18 @@ Status
 ToDo
 -------
 
-1. Write a proper setup.py.
+1. ~~Write a proper setup.py.~~
 2. Better unit testing.
 3. Object constructors are a mess, make more use of classmethods!
 4. Improve module import, and have all the usual package things good to go i.e.\
    (`__doc__` strings) etc.
 
-5. Fix fallout from removing jax from colloc.
+5. Fix fallout from ~~removing jax~~ from colloc.
 6. Improve `sympy` code, in particular fix the "compilation" of non-local equations.
-7. Complete continuation code in this repository.
-8. Clean-up the many bolted on features in the main operator class, collocators, and nonlinear solvers.
-9. Lazy evaluations of arithmetic operations?
-10. Check that the series truncation code works as expected, in particular is it scale invariant?
-11. Lots of other things need fixing and improving!
+7. Clean-up the many bolted on features in the main operator class, collocators, and nonlinear solvers.
+8. Lazy evaluations of arithmetic operations?
+9. Check that the series truncation code works as expected, in particular is it scale invariant?
+10. Lots of other things need fixing and improving!
 
 
 Functions
